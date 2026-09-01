@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { startValidation } from "../agent/controller.js";
 import { verify,mint,adminAuthorized } from "../auth/tokens.js";
 import { q } from "../db/index.js";
+import { syncHubSpotOnce } from "../integrations/hubspot/worker.js";
 
 async function bearer(req:any,reply:any,scope:string){const raw=String(req.headers.authorization??"").replace(/^Bearer\s+/i,"");if(!raw||!await verify(raw,scope)){reply.code(401).send({error:"UNAUTHORIZED"});return false;}return true;}
 function admin(req:any,reply:any){if(!adminAuthorized(req.headers["x-admin-secret"])){reply.code(401).send({error:"UNAUTHORIZED"});return false;}return true;}
@@ -16,4 +17,5 @@ export async function routes(app:FastifyInstance){
   app.get("/admin/tokens",async(req:any,rep:any)=>{if(!admin(req,rep))return;return q("SELECT id,name,prefix,scopes,created_at,last_used_at,revoked_at FROM api_tokens ORDER BY created_at DESC");});
   app.post("/admin/tokens",async(req:any,rep:any)=>{if(!admin(req,rep))return;try{return await mint(req.body?.name??"token",req.body?.scopes??["validate","read-result"]);}catch(e:any){return rep.code(400).send({error:e?.message??"TOKEN_CREATE_FAILED"});}});
   app.delete("/admin/tokens/:id",async(req:any,rep:any)=>{if(!admin(req,rep))return;const rows=await q<any>("UPDATE api_tokens SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL RETURNING id",[req.params.id]);return {revoked:!!rows[0]};});
+  app.post("/admin/hubspot/sync",async(req:any,rep:any)=>{if(!admin(req,rep))return;try{return await syncHubSpotOnce();}catch(e:any){return rep.code(502).send({error:e?.message??"HUBSPOT_SYNC_FAILED"});}});
 }
