@@ -1,0 +1,8 @@
+{
+  "state":"AZ",
+  "sources":[
+    {"id":"AZ_DPS_RECORDS","state":"AZ","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN"],"dimension":"INCIDENT_EXISTENCE","authority":"Arizona Department of Public Safety","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://www.azdps.gov/request-records","access":"MIXED","identifiers":["report_number","date","location","party"],"notes":"Respect Arizona restrictions on accident-report use and commercial solicitation; no authorization bypass."},
+    {"id":"AZ_ACC","state":"AZ","caseTypes":["SLIP_FALL"],"dimension":"BUSINESS_EXISTENCE","authority":"Arizona Corporation Commission","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://ecorp.azcc.gov/EntitySearch/Index","access":"PUBLIC","identifiers":["business_name","entity_id","agent"]},
+    {"id":"AZ_COURTS","state":"AZ","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"LITIGATION","authority":"Arizona Judicial Branch","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://apps.azcourts.gov/publicaccess/caselookup.aspx","access":"PUBLIC","identifiers":["party_name","case_number"]}
+  ]
+}

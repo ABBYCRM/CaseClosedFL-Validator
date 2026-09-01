@@ -1,0 +1,7 @@
+import { z } from "zod";
+import { env } from "../config/env.js";
+import { reasonJson } from "../model/nvidia.js";
+import type { Lead } from "./schema.js";
+const FaultExtraction=z.object({supports_not_at_fault:z.boolean(),supports_client_fault:z.boolean(),comparative_fault_indicators:z.boolean(),matched_identifier:z.boolean(),matched_date:z.boolean(),matched_agency:z.boolean(),rationale:z.string().max(700),confidence:z.number().min(0).max(1)});export type FaultExtraction=z.infer<typeof FaultExtraction>;
+export function relevantDocumentText(lead:Lead){return lead.documents.filter((d:any)=>d.text).map((d:any)=>({name:d.name,type:d.type,source:d.source,text:(d.text??"").slice(0,env.MAX_DOCUMENT_CHARS)}));}
+export async function extractFaultFromDocuments(lead:Lead):Promise<FaultExtraction|null>{const docs=relevantDocumentText(lead).filter((d:any)=>d.type==="POLICE_REPORT"||d.type==="INCIDENT_REPORT");if(!docs.length)return null;return reasonJson({incident:lead.incident,client:{first_name:lead.client.first_name,last_name:lead.client.last_name},documents:docs},FaultExtraction,`Extract only explicit fault/contributing-factor signals from the supplied documents. Do not make a legal fault finding. matched_identifier/date/agency mean the document text visibly agrees with the supplied intake fields. supports_not_at_fault is true only when explicit document content attributes the primary/contributing cause to another party without a clear client-primary-cause statement.`);}

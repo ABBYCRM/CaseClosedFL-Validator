@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: CaseClosedFL-Validator API
+  version: 1.1.0
+paths:
+  /v1/validations:
+    post:
+      summary: Validate a CaseClosedFL lead
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/Lead'}}}
+      responses:
+        '200': {description: Validation terminal result}
+        '400': {description: Invalid lead payload}
+        '401': {description: Unauthorized}
+  /v1/validations/{id}:
+    get:
+      summary: Read a validation result
+      security: [{bearerAuth: []}]
+      parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Result}, '404': {description: Not found}}
+  /v1/validations/{id}/evidence:
+    get:
+      summary: Read the evidence ledger
+      security: [{bearerAuth: []}]
+      parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Evidence list}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  schemas:
+    Lead:
+      type: object
+      required: [lead_id,state,case_type]
+      properties:
+        lead_id: {type: string}
+        state: {type: string, enum: [FL,CA,AZ,TX,NY]}
+        case_type: {type: string, enum: [AUTO_ACCIDENT,TRUCK_ACCIDENT,MOTORCYCLE_ACCIDENT,RIDESHARE_ACCIDENT,BICYCLE_PEDESTRIAN,SLIP_FALL]}
+        client: {type: object}
+        incident: {type: object}
+        medical: {type: object}
+        qualification: {type: object}
+        documents: {type: array, items: {type: object}}

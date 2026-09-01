@@ -1,0 +1,12 @@
+{
+  "source":"https://caseclosedfl.com/",
+  "last_verified":"2026-09-01",
+  "service":"CaseClosedFL case acquisition and attorney-matching intake; not a law firm",
+  "states":["FL","CA","AZ","TX","NY"],
+  "case_types":[{"internal":"AUTO_ACCIDENT","public":"Car accidents"},{"internal":"TRUCK_ACCIDENT","public":"Truck accidents"},{"internal":"MOTORCYCLE_ACCIDENT","public":"Motorcycle accidents"},{"internal":"SLIP_FALL","public":"Slip & fall"},{"internal":"RIDESHARE_ACCIDENT","public":"Rideshare accidents"},{"internal":"BICYCLE_PEDESTRIAN","public":"Bike/pedestrian accidents"}],
+  "pre_contact_fields":["incident type","accident date","injury","medical care/treatment","fault","existing representation"],
+  "published_hard_stops":[{"condition":"already represented by an attorney for this incident","result":"STOP"},{"condition":"motor-vehicle claimant states they were primarily at fault","result":"STOP"}],
+  "fault_options":["OTHER_PARTY","NOT_SURE","SHARED","CLIENT"],
+  "epistemic_rule":"Claimant answers are intake assertions until corroborated; they are not external evidence.",
+  "disclosure":"No settlement, recovery, case value, attorney match, or legal outcome is guaranteed. Validator does not provide legal advice."
+}

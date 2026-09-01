@@ -1,0 +1,14 @@
+{
+  "mission":"lead_validation_only",
+  "allowCapabilities":["WEB_SEARCH","WEB_EXTRACT","JS_BROWSER","PUBLIC_RECORD_LOOKUP","BUSINESS_SEARCH","COURT_SEARCH","PROVIDER_SEARCH"],
+  "preferredToolkits":["tavily","exa","serpapi","scrapingbee","steel"],
+  "denyPatterns":["send","email","message","delete","remove","purchase","buy","hubspot","payment","write_file","shell","bash","remote_workbench"],
+  "rules":[
+    "Search engines are discovery/corroboration aids, not authority over government records.",
+    "Do not bypass authentication, CAPTCHA, confidentiality, paywalls, or statutory access restrictions.",
+    "Do not purchase records automatically.",
+    "Do not submit forms that create, change, or request restricted records without explicit upstream authorization.",
+    "A failed tool execution never becomes a successful observation.",
+    "After two materially identical failures, change strategy or terminate INCOMPLETE."
+  ]
+}

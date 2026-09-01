@@ -1,0 +1,3 @@
+import {describe,it,expect} from "vitest";
+import {buildOutcome} from "../src/validation/outcome.js";
+describe("outcome",()=>{it("does not convert missing evidence into fraud",()=>{const x=buildOutcome({status:"INCOMPLETE",reason:"NOT_CORROBORATED",missing:["report"],evidence:[],dimensions:{incident:"UNKNOWN"}});expect(x.status).toBe("INCOMPLETE");expect(JSON.stringify(x)).not.toMatch(/fraud/i);});it("hash is stable for identical body",()=>{const i={status:"VALIDATED" as const,missing:[],evidence:[],dimensions:{incident:"VALIDATED"}};expect(buildOutcome(i).result_hash).toBe(buildOutcome(i).result_hash);});});

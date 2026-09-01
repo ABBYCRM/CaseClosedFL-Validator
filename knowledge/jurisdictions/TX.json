@@ -1,0 +1,9 @@
+{
+  "state":"TX",
+  "sources":[
+    {"id":"TX_TXDOT_CRIS","state":"TX","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN"],"dimension":"INCIDENT_EXISTENCE","authority":"Texas Department of Transportation","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://www.txdot.gov/data-maps/crash-reports-records.html","access":"MIXED","identifiers":["crash_id","report_number","date","location","party"]},
+    {"id":"TX_COMPTROLLER","state":"TX","caseTypes":["SLIP_FALL"],"dimension":"BUSINESS_EXISTENCE","authority":"Texas Comptroller","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://mycpa.cpa.state.tx.us/coa/","access":"PUBLIC","identifiers":["entity_name","taxpayer_number"]},
+    {"id":"TX_TMB","state":"TX","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"PROVIDER_LICENSE","authority":"Texas Medical Board","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://profile.tmb.state.tx.us/","access":"PUBLIC","identifiers":["provider_name","license_number"]},
+    {"id":"TX_COURTS","state":"TX","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"LITIGATION","authority":"Texas Judicial Branch","authorityLevel":"SECONDARY_GOVERNMENT","url":"https://www.txcourts.gov/","access":"PUBLIC","identifiers":["county","party_name"],"notes":"Civil case lookup is jurisdiction/county dependent; route to the appropriate clerk/court."}
+  ]
+}

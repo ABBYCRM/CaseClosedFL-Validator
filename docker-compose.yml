@@ -1,0 +1,16 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: caseclosed_validator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5432:5432"]
+    volumes: ["ccv_pg:/var/lib/postgresql/data"]
+  validator:
+    build: .
+    env_file: .env
+    depends_on: [db]
+    ports: ["8080:8080"]
+volumes:
+  ccv_pg: {}

@@ -1,0 +1,7 @@
+{
+  // Dedicated validator-note gateway only. Do not reuse a broad personal OpenClaw.
+  gateway: {
+    auth: { mode: "token" },
+    http: { endpoints: { chatCompletions: { enabled: true } } }
+  }
+}

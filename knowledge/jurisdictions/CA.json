@@ -1,0 +1,9 @@
+{
+  "state":"CA",
+  "sources":[
+    {"id":"CA_CHP_COLLISION","state":"CA","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN"],"dimension":"INCIDENT_EXISTENCE","authority":"California Highway Patrol","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://www.chp.ca.gov/traffic/request-a-crash-report/","access":"AUTHORIZED","identifiers":["collision_report_number","date","party","location"],"notes":"CHP only supplies reports for collisions investigated by CHP. Route local-agency reports to the investigating agency."},
+    {"id":"CA_BIZFILE","state":"CA","caseTypes":["SLIP_FALL"],"dimension":"BUSINESS_EXISTENCE","authority":"California Secretary of State","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://bizfileonline.sos.ca.gov/search/business","access":"PUBLIC","identifiers":["business_name","entity_number","address"]},
+    {"id":"CA_MBC","state":"CA","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"PROVIDER_LICENSE","authority":"Medical Board of California","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://www.mbc.ca.gov/License-Verification/default.aspx","access":"PUBLIC","identifiers":["provider_name","license_number"]},
+    {"id":"CA_COURTS","state":"CA","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"LITIGATION","authority":"California Courts","authorityLevel":"SECONDARY_GOVERNMENT","url":"https://courts.ca.gov/find-my-court/90035","access":"PUBLIC","identifiers":["county","party_name"],"notes":"Case lookup is maintained by each superior court; use this locator to route to the correct court."}
+  ]
+}

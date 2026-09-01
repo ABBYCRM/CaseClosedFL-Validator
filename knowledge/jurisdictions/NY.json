@@ -1,0 +1,10 @@
+{
+  "state":"NY",
+  "timing":{"nyc_electronic_report_days":14,"paper_police_report_days":30,"motorist_report_days":60},
+  "sources":[
+    {"id":"NY_DMV_CRASH","state":"NY","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN"],"dimension":"INCIDENT_EXISTENCE","authority":"New York State DMV","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://dmv.ny.gov/records/order-and-access-motor-vehicle-crash-accident-reports","access":"MIXED","identifiers":["report_number","date","county","party"]},
+    {"id":"NY_DOS_CORP","state":"NY","caseTypes":["SLIP_FALL"],"dimension":"BUSINESS_EXISTENCE","authority":"New York Department of State","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://apps.dos.ny.gov/publicInquiry/","access":"PUBLIC","identifiers":["business_name","dos_id"]},
+    {"id":"NY_OP_LICENSE","state":"NY","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"PROVIDER_LICENSE","authority":"New York State Education Department Office of the Professions","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://www.op.nysed.gov/verification-search","access":"PUBLIC","identifiers":["provider_name","license_number"]},
+    {"id":"NY_ECOURTS","state":"NY","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"LITIGATION","authority":"New York State Unified Court System","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://iapps.courts.state.ny.us/webcivil/FCASMain","access":"PUBLIC","identifiers":["party_name","case_number"]}
+  ]
+}

@@ -1,0 +1,5 @@
+import {describe,it,expect} from "vitest";
+import {Lead} from "../src/validation/schema.js";
+import {intakeHardStop,missingRequirements} from "../src/validation/requirements.js";
+const base={lead_id:"1",state:"FL" as const,case_type:"AUTO_ACCIDENT" as const,incident:{date:"2026-08-01",case_number:"x"},qualification:{injured:"YES" as const,primary_fault:"OTHER_PARTY" as const,already_represented:false}};
+describe("public intake rules",()=>{it("hard-stops existing representation",()=>expect(intakeHardStop(Lead.parse({...base,qualification:{...base.qualification,already_represented:true}}))).toBe("EXISTING_REPRESENTATION"));it("hard-stops claimant-primary fault for MVA",()=>expect(intakeHardStop(Lead.parse({...base,qualification:{...base.qualification,primary_fault:"CLIENT"}}))).toBe("CLIENT_STATES_PRIMARY_FAULT"));it("does not invent a hard stop for shared fault",()=>expect(intakeHardStop(Lead.parse({...base,qualification:{...base.qualification,primary_fault:"SHARED"}}))).toBeNull());it("requires core intake fields",()=>expect(missingRequirements(Lead.parse({lead_id:"1",state:"FL",case_type:"AUTO_ACCIDENT"})).length).toBeGreaterThan(0));});

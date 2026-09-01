@@ -1,0 +1,1 @@
+{"caseType":"SLIP_FALL","dimensions":["BUSINESS_EXISTENCE","PROVIDER_LICENSE","LITIGATION"],"requiredAny":["incident.business_name","incident.business_address","documents"],"notes":["A business registry can validate the premises/entity but not prove the fall occurred.","Incident existence ordinarily requires client-provided incident evidence or another authorized source."]}

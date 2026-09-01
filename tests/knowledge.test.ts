@@ -1,0 +1,3 @@
+import {describe,it,expect} from "vitest";
+import {loadJurisdiction,loadCaseType,sourcesFor} from "../src/knowledge/registry.js";
+describe("knowledge packs",()=>{it("loads all jurisdictions",()=>{for(const s of["FL","CA","AZ","TX","NY"] as const)expect(loadJurisdiction(s)?.state).toBe(s);});it("loads all case skills",()=>{for(const t of["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"] as const)expect(loadCaseType(t)?.caseType).toBe(t);});it("has an incident source for each MVA state",()=>{for(const s of["FL","CA","AZ","TX","NY"] as const)expect(sourcesFor(s,"AUTO_ACCIDENT","INCIDENT_EXISTENCE").length).toBeGreaterThan(0);});});

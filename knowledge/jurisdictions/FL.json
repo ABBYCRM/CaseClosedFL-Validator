@@ -1,0 +1,10 @@
+{
+  "state":"FL",
+  "timing":{"crash_report_max_submission_days":10,"confidential_crash_report_days":60},
+  "sources":[
+    {"id":"FL_FLHSMV_CRASH","state":"FL","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN"],"dimension":"INCIDENT_EXISTENCE","authority":"Florida Highway Safety and Motor Vehicles","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://www.flhsmv.gov/traffic-crash-reports/","access":"MIXED","identifiers":["crash_report_number","agency_case_number","date","county","party"],"notes":"Crash reports can be restricted during the statutory confidentiality period. Do not bypass authorization."},
+    {"id":"FL_SUNBIZ","state":"FL","caseTypes":["SLIP_FALL"],"dimension":"BUSINESS_EXISTENCE","authority":"Florida Division of Corporations","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://search.sunbiz.org/Inquiry/CorporationSearch/ByName","access":"PUBLIC","identifiers":["business_name","address"]},
+    {"id":"FL_HEALTHSOURCE","state":"FL","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"PROVIDER_LICENSE","authority":"Florida Department of Health","authorityLevel":"PRIMARY_GOVERNMENT","url":"https://mqa-internet.doh.state.fl.us/MQASearchServices/HealthCareProviders","access":"PUBLIC","identifiers":["provider_name","license_number"]},
+    {"id":"FL_COURTS","state":"FL","caseTypes":["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"],"dimension":"LITIGATION","authority":"Florida Courts","authorityLevel":"SECONDARY_GOVERNMENT","url":"https://acis.flcourts.gov/portal/search","access":"PUBLIC","identifiers":["party_name","case_number"],"notes":"Trial-level PI cases often require the appropriate county clerk; ACIS is not a complete statewide trial-court index."}
+  ]
+}

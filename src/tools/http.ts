@@ -1,0 +1,5 @@
+import { env } from "../config/env.js";
+export interface HttpObservation { ok:boolean; status:number; url:string; text:string; contentType:string; }
+const blockedHosts=new Set(["localhost","127.0.0.1","0.0.0.0","::1"]);
+export function assertSafePublicUrl(raw:string){const url=new URL(raw);if(url.protocol!=="https:")throw new Error("HTTPS_REQUIRED");if(blockedHosts.has(url.hostname)||/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname))throw new Error("PRIVATE_NETWORK_DENIED");return url;}
+export async function fetchPublic(raw:string):Promise<HttpObservation>{const url=assertSafePublicUrl(raw);const c=new AbortController();const timer=setTimeout(()=>c.abort(),env.HTTP_TIMEOUT_MS);try{const r=await fetch(url,{signal:c.signal,redirect:"follow",headers:{"User-Agent":"CaseClosedFL-Validator/1.1 (+validation-bot)"}});const text=(await r.text()).slice(0,1_000_000);return{ok:r.ok,status:r.status,url:r.url,text,contentType:r.headers.get("content-type")??""};}finally{clearTimeout(timer);}}

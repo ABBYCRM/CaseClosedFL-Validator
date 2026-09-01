@@ -1,0 +1,3 @@
+import {describe,it,expect} from "vitest";
+import {Lead} from "../src/validation/schema.js";
+describe("lead schema",()=>{it("accepts a supported MVA",()=>expect(Lead.parse({lead_id:"1",state:"FL",case_type:"AUTO_ACCIDENT",qualification:{injured:"YES",primary_fault:"OTHER_PARTY",already_represented:false}}).state).toBe("FL"));it("rejects unsupported state",()=>expect(()=>Lead.parse({lead_id:"1",state:"XX",case_type:"AUTO_ACCIDENT"})).toThrow());it("accepts all public site case types",()=>{for(const t of["AUTO_ACCIDENT","TRUCK_ACCIDENT","MOTORCYCLE_ACCIDENT","RIDESHARE_ACCIDENT","BICYCLE_PEDESTRIAN","SLIP_FALL"])expect(()=>Lead.parse({lead_id:t,state:"NY",case_type:t})).not.toThrow();});});
