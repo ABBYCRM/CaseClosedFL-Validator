@@ -1,6 +1,6 @@
 {
   "name": "caseclosedfl-validator",
-  "version": "1.2.0",
+  "version": "1.3.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "db:migrate": "tsx scripts/migrate.ts",
     "rag:ingest": "tsx scripts/ingest.ts",
-    "sources:check": "tsx scripts/check-sources.ts"
+    "sources:check": "tsx scripts/check-sources.ts",
+    "hubspot:forms": "tsx scripts/hubspot-forms.ts",
+    "hubspot:sync": "tsx scripts/hubspot-sync.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
@@ -27,7 +29,5 @@
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
-  "engines": {
-    "node": ">=22"
-  }
+  "engines": {"node": ">=22"}
 }
