@@ -11,7 +11,7 @@ The bridge is intentionally narrow:
 - WRITE: create a NOTE associated to that contact
 - DENY BY DESIGN: contact updates, deal updates, ticket updates, marketing email changes, form edits, lifecycle-stage changes, owner changes, messaging, and arbitrary CRM writes
 
-`HUBSPOT_INITIAL_FORM_ID` and `HUBSPOT_EMAIL_FORM_ID` are preferred. Exact names can be used instead, but resolution fails unless each name matches exactly one active form.
+`HUBSPOT_INITIAL_FORM_GUID` and `HUBSPOT_EMAIL_FORM_GUID` are preferred. The older `*_FORM_ID` names remain supported as aliases. Exact form names can also be used, but resolution fails unless each name matches exactly one active form.
 
 ## Data flow
 
@@ -34,8 +34,8 @@ If the supplemental form arrives after the initial form, a later sync reruns val
 ```text
 HUBSPOT_SYNC_ENABLED=true
 HUBSPOT_ACCESS_TOKEN=<runtime secret>
-HUBSPOT_INITIAL_FORM_ID=<guid>
-HUBSPOT_EMAIL_FORM_ID=<guid>
+HUBSPOT_INITIAL_FORM_GUID=<guid>
+HUBSPOT_EMAIL_FORM_GUID=<guid>
 ```
 
 The HubSpot credential should be provisioned with the minimum scopes needed to read forms/submissions, read contacts for email resolution, and create notes. Do not grant broad CRM write scopes if avoidable.

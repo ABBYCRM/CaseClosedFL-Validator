@@ -30,6 +30,8 @@ const Schema=z.object({
   OPENCLAW_TOKEN:z.string().default(""),
   HUBSPOT_SYNC_ENABLED:bool,
   HUBSPOT_ACCESS_TOKEN:z.string().default(""),
+  HUBSPOT_INITIAL_FORM_GUID:z.string().default(""),
+  HUBSPOT_EMAIL_FORM_GUID:z.string().default(""),
   HUBSPOT_INITIAL_FORM_ID:z.string().default(""),
   HUBSPOT_EMAIL_FORM_ID:z.string().default(""),
   HUBSPOT_INITIAL_FORM_NAME:z.string().default(""),
@@ -47,7 +49,14 @@ const Schema=z.object({
   KNOWLEDGE_VERSION:z.string().default("2026.09.01"),
   ENGINE_VERSION:z.string().default("1.3.1")
 });
-export const env=Schema.parse(process.env);
+const parsed=Schema.parse(process.env);
+export const env={
+  ...parsed,
+  // HubSpot calls these values form GUIDs. Keep the older *_FORM_ID names as
+  // compatibility aliases for existing deployments.
+  HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,
+  HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID
+};
 export function assertProductionSafety(){
   if(env.NODE_ENV!=="production")return;
   if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");

@@ -225,7 +225,7 @@ Many crash-report systems restrict recent reports, require identity/authorizatio
 
 ## What this service deliberately does not do
 
-- HubSpot writes
+- HubSpot writes other than the single validation NOTE defined by the standalone bridge
 - claimant communications
 - attorney communications
 - report purchases
