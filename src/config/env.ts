@@ -1,4 +1,47 @@
 import { z } from "zod";
-const bool=z.string().default("false").transform((v:string)=>v.toLowerCase()==="true");const csv=z.string().default("").transform((v:string)=>v.split(",").map((x:string)=>x.trim()).filter(Boolean));
-const Schema=z.object({NODE_ENV:z.enum(["development","test","production"]).default("development"),PORT:z.coerce.number().int().positive().default(8080),DATABASE_URL:z.string().min(1).default("postgresql://postgres:postgres@localhost:5432/caseclosed_validator"),ADMIN_SECRET:z.string().min(24).default("development-admin-secret-change-me"),TOKEN_PEPPER:z.string().min(24).default("development-token-pepper-change-me"),NVIDIA_API_KEY:z.string().default(""),NVIDIA_BASE_URL:z.string().url().default("https://integrate.api.nvidia.com/v1"),NVIDIA_MODEL:z.string().default("nvidia/nemotron-3-ultra-550b-a55b"),NVIDIA_EMBED_MODEL:z.string().default("nvidia/nemotron-3-embed-1b"),NVIDIA_EMBED_DIMENSIONS:z.coerce.number().int().positive().default(2048),COMPOSIO_API_KEY:z.string().default(""),COMPOSIO_BASE_URL:z.string().url().default("https://backend.composio.dev"),COMPOSIO_USER_ID:z.string().default("caseclosedfl-validator"),COMPOSIO_TOOLKITS:csv,STEEL_API_KEY:z.string().default(""),STEEL_BASE_URL:z.string().url().default("https://api.steel.dev/v1"),OPENCLAW_ENABLED:bool,OPENCLAW_GATEWAY_URL:z.string().url().default("http://127.0.0.1:18789"),OPENCLAW_TOKEN:z.string().default(""),MAX_MODEL_CALLS:z.coerce.number().int().positive().default(3),MAX_TOOL_CALLS:z.coerce.number().int().positive().default(18),MAX_CYCLES:z.coerce.number().int().positive().default(12),MAX_IDENTICAL_FAILURES:z.coerce.number().int().positive().default(2),TOOL_TIMEOUT_MS:z.coerce.number().int().positive().default(20000),HTTP_TIMEOUT_MS:z.coerce.number().int().positive().default(12000),MAX_DOCUMENT_CHARS:z.coerce.number().int().positive().default(60000),KNOWLEDGE_VERSION:z.string().default("2026.09.01"),ENGINE_VERSION:z.string().default("1.1.0")});
-export const env=Schema.parse(process.env);export function assertProductionSafety(){if(env.NODE_ENV!=="production")return;if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");}
+const bool=z.string().default("false").transform((v:string)=>v.toLowerCase()==="true");
+const csv=z.string().default("").transform((v:string)=>v.split(",").map((x:string)=>x.trim()).filter(Boolean));
+const Schema=z.object({
+  NODE_ENV:z.enum(["development","test","production"]).default("development"),
+  PORT:z.coerce.number().int().positive().default(8080),
+  DATABASE_URL:z.string().min(1).default("postgresql://postgres:postgres@localhost:5432/caseclosed_validator"),
+  ADMIN_SECRET:z.string().min(24).default("development-admin-secret-change-me"),
+  TOKEN_PEPPER:z.string().min(24).default("development-token-pepper-change-me"),
+  MODEL_PROVIDER:z.enum(["nvidia","openai"]).default("nvidia"),
+  EMBEDDING_PROVIDER:z.enum(["nvidia","openai"]).default("nvidia"),
+  NVIDIA_API_KEY:z.string().default(""),
+  NVIDIA_BASE_URL:z.string().url().default("https://integrate.api.nvidia.com/v1"),
+  NVIDIA_MODEL:z.string().default("nvidia/nemotron-3-ultra-550b-a55b"),
+  NVIDIA_EMBED_MODEL:z.string().default("nvidia/nemotron-3-embed-1b"),
+  NVIDIA_EMBED_DIMENSIONS:z.coerce.number().int().positive().default(2048),
+  OPENAI_API_KEY:z.string().default(""),
+  OPENAI_BASE_URL:z.string().url().default("https://api.openai.com/v1"),
+  OPENAI_MODEL:z.string().default("gpt-5.4-mini"),
+  OPENAI_EMBED_MODEL:z.string().default("text-embedding-3-large"),
+  OPENAI_EMBED_DIMENSIONS:z.coerce.number().int().positive().default(2048),
+  COMPOSIO_API_KEY:z.string().default(""),
+  COMPOSIO_BASE_URL:z.string().url().default("https://backend.composio.dev"),
+  COMPOSIO_USER_ID:z.string().default("caseclosedfl-validator"),
+  COMPOSIO_TOOLKITS:csv,
+  STEEL_API_KEY:z.string().default(""),
+  STEEL_BASE_URL:z.string().url().default("https://api.steel.dev/v1"),
+  OPENCLAW_ENABLED:bool,
+  OPENCLAW_GATEWAY_URL:z.string().url().default("http://127.0.0.1:18789"),
+  OPENCLAW_TOKEN:z.string().default(""),
+  MAX_MODEL_CALLS:z.coerce.number().int().positive().default(3),
+  MAX_TOOL_CALLS:z.coerce.number().int().positive().default(18),
+  MAX_CYCLES:z.coerce.number().int().positive().default(12),
+  MAX_IDENTICAL_FAILURES:z.coerce.number().int().positive().default(2),
+  TOOL_TIMEOUT_MS:z.coerce.number().int().positive().default(20000),
+  HTTP_TIMEOUT_MS:z.coerce.number().int().positive().default(12000),
+  MAX_DOCUMENT_CHARS:z.coerce.number().int().positive().default(60000),
+  KNOWLEDGE_VERSION:z.string().default("2026.09.01"),
+  ENGINE_VERSION:z.string().default("1.2.0")
+});
+export const env=Schema.parse(process.env);
+export function assertProductionSafety(){
+  if(env.NODE_ENV!=="production")return;
+  if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");
+  if(env.MODEL_PROVIDER==="openai"&&!env.OPENAI_API_KEY)throw new Error("OPENAI_API_KEY_REQUIRED");
+  if(env.MODEL_PROVIDER==="nvidia"&&!env.NVIDIA_API_KEY)throw new Error("NVIDIA_API_KEY_REQUIRED");
+}
