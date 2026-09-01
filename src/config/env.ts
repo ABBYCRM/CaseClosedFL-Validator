@@ -28,6 +28,15 @@ const Schema=z.object({
   OPENCLAW_ENABLED:bool,
   OPENCLAW_GATEWAY_URL:z.string().url().default("http://127.0.0.1:18789"),
   OPENCLAW_TOKEN:z.string().default(""),
+  HUBSPOT_SYNC_ENABLED:bool,
+  HUBSPOT_ACCESS_TOKEN:z.string().default(""),
+  HUBSPOT_INITIAL_FORM_ID:z.string().default(""),
+  HUBSPOT_EMAIL_FORM_ID:z.string().default(""),
+  HUBSPOT_INITIAL_FORM_NAME:z.string().default(""),
+  HUBSPOT_EMAIL_FORM_NAME:z.string().default(""),
+  HUBSPOT_SYNC_INTERVAL_MS:z.coerce.number().int().min(60_000).default(300_000),
+  HUBSPOT_SYNC_LOOKBACK_PAGES:z.coerce.number().int().min(1).max(20).default(4),
+  HUBSPOT_SYNC_BATCH_SIZE:z.coerce.number().int().min(1).max(100).default(20),
   MAX_MODEL_CALLS:z.coerce.number().int().positive().default(3),
   MAX_TOOL_CALLS:z.coerce.number().int().positive().default(18),
   MAX_CYCLES:z.coerce.number().int().positive().default(12),
@@ -36,7 +45,7 @@ const Schema=z.object({
   HTTP_TIMEOUT_MS:z.coerce.number().int().positive().default(12000),
   MAX_DOCUMENT_CHARS:z.coerce.number().int().positive().default(60000),
   KNOWLEDGE_VERSION:z.string().default("2026.09.01"),
-  ENGINE_VERSION:z.string().default("1.2.0")
+  ENGINE_VERSION:z.string().default("1.3.1")
 });
 export const env=Schema.parse(process.env);
 export function assertProductionSafety(){
@@ -44,4 +53,10 @@ export function assertProductionSafety(){
   if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");
   if(env.MODEL_PROVIDER==="openai"&&!env.OPENAI_API_KEY)throw new Error("OPENAI_API_KEY_REQUIRED");
   if(env.MODEL_PROVIDER==="nvidia"&&!env.NVIDIA_API_KEY)throw new Error("NVIDIA_API_KEY_REQUIRED");
+  if(env.HUBSPOT_SYNC_ENABLED){
+    if(!env.HUBSPOT_ACCESS_TOKEN)throw new Error("HUBSPOT_ACCESS_TOKEN_REQUIRED");
+    const idsConfigured=!!env.HUBSPOT_INITIAL_FORM_ID&&!!env.HUBSPOT_EMAIL_FORM_ID;
+    const namesConfigured=!!env.HUBSPOT_INITIAL_FORM_NAME&&!!env.HUBSPOT_EMAIL_FORM_NAME;
+    if(!idsConfigured&&!namesConfigured)throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
+  }
 }
