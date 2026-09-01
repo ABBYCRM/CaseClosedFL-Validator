@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { env } from "../config/env.js";
-import { reasonJson } from "../model/nvidia.js";
+import { reasonJson } from "../model/provider.js";
 import type { Lead } from "./schema.js";
 const FaultExtraction=z.object({supports_not_at_fault:z.boolean(),supports_client_fault:z.boolean(),comparative_fault_indicators:z.boolean(),matched_identifier:z.boolean(),matched_date:z.boolean(),matched_agency:z.boolean(),rationale:z.string().max(700),confidence:z.number().min(0).max(1)});export type FaultExtraction=z.infer<typeof FaultExtraction>;
 export function relevantDocumentText(lead:Lead){return lead.documents.filter((d:any)=>d.text).map((d:any)=>({name:d.name,type:d.type,source:d.source,text:(d.text??"").slice(0,env.MAX_DOCUMENT_CHARS)}));}
