@@ -1,7 +1,7 @@
 {
   "mission":"lead_validation_only",
   "allowCapabilities":["WEB_SEARCH","WEB_EXTRACT","JS_BROWSER","PUBLIC_RECORD_LOOKUP","BUSINESS_SEARCH","COURT_SEARCH","PROVIDER_SEARCH"],
-  "preferredToolkits":["tavily","exa","serpapi","scrapingbee","steel"],
+  "preferredToolkits":["tavily","exa","serpapi","scrapingbee","steel","firecrawl","scrapfly"],
   "denyPatterns":["send","email","message","delete","remove","purchase","buy","hubspot","payment","write_file","shell","bash","remote_workbench"],
   "rules":[
     "Search engines are discovery/corroboration aids, not authority over government records.",

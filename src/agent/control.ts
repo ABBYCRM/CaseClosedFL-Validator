@@ -16,6 +16,6 @@ export function finishExecutionCycle(state:SelfState,actualAction:string,observe
 export function classifyBlocker(state:SelfState,message:string){
   state.blockers.push(message);state.health="BLOCKED";
   if(/AUTHORIZATION|MISSING|UNKNOWN/i.test(message))state.issue="INFORMATION_GAP";
-  else if(/TOOL|COMPOSIO|STEEL|HTTP|TIMEOUT/i.test(message))state.issue="TOOL_FAILURE";
+  else if(/TOOL|COMPOSIO|DIRECT|STEEL|HTTP|TIMEOUT/i.test(message))state.issue="TOOL_FAILURE";
   else state.issue="EXECUTION_FAILURE";
 }

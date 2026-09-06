@@ -4,7 +4,7 @@
 
 ## Flow
 
-`API -> schema -> deterministic intake hard-stops -> jurisdiction/case skill -> source registry -> Composio read-only tools -> evidence ledger -> optional NVIDIA document extraction -> deterministic decision -> signed/hashable JSON result`
+`API -> schema -> deterministic intake hard-stops -> jurisdiction/case skill -> source registry -> Composio read-only tools (or direct keyed fallbacks) -> evidence ledger -> optional NVIDIA document extraction -> deterministic decision -> signed/hashable JSON result`
 
 ## Evidence hierarchy
 1. Direct authoritative government observation.

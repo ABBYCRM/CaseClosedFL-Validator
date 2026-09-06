@@ -55,6 +55,13 @@ const Schema=z.object({
   COMPOSIO_TOOLKITS:csv,
   STEEL_API_KEY:z.string().default(""),
   STEEL_BASE_URL:z.string().url().default("https://api.steel.dev/v1"),
+  TAVILY_API_KEY:z.string().default(""),
+  EXA_API_KEY:z.string().default(""),
+  FIRECRAWL_API_KEY:z.string().default(""),
+  SCRAPINGBEE_API_KEY:z.string().default(""),
+  SCRAPFLY_API_KEY:z.string().default(""),
+  SCREENSHOTONE_ACCESS_KEY:z.string().default(""),
+  SCREENSHOTONE_SECRET_KEY:z.string().default(""),
   OPENCLAW_ENABLED:bool,
   OPENCLAW_GATEWAY_URL:z.string().url().default("http://127.0.0.1:18789"),
   OPENCLAW_TOKEN:z.string().default(""),
@@ -79,14 +86,17 @@ const Schema=z.object({
   KNOWLEDGE_VERSION:z.string().default("2026.09.01"),
   ENGINE_VERSION:z.string().default("1.3.1")
 });
-const parsed=Schema.parse(process.env);
-export const env={
-  ...parsed,
-  // HubSpot calls these values form GUIDs. Keep the older *_FORM_ID names as
-  // compatibility aliases for existing deployments.
-  HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,
-  HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID
-};
+export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined>=process.env){
+  const parsed=Schema.parse(source);
+  return{
+    ...parsed,
+    // HubSpot calls these values form GUIDs. Keep the older *_FORM_ID names as
+    // compatibility aliases for existing deployments.
+    HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,
+    HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID
+  };
+}
+export const env=parseEnv();
 export function hubspotAllowlistConfigured(cfg:{
   HUBSPOT_INITIAL_FORM_ID?:string;
   HUBSPOT_EMAIL_FORM_ID?:string;
