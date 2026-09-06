@@ -1,18 +1,31 @@
 import { env } from "../../config/env.js";
+import { listValidationScreenshots, type ValidationScreenshot } from "../../evidence/screenshots.js";
+
+export interface HubSpotHttpOptions {
+  fetch?:typeof fetch;
+  accessToken?:string;
+  timeoutMs?:number;
+  associationTypeId?:number;
+}
 
 export interface HubSpotFormDefinition { id:string; name:string; archived?:boolean; formType?:string; }
 export interface HubSpotSubmissionValue { name:string; value:string; }
 export interface HubSpotSubmission { conversionId:string; submittedAt:number; values:HubSpotSubmissionValue[]; pageUrl?:string; }
 
-function headers(){
-  if(!env.HUBSPOT_ACCESS_TOKEN) throw new Error("HUBSPOT_NOT_CONFIGURED");
-  return {Authorization:`Bearer ${env.HUBSPOT_ACCESS_TOKEN}`,"Content-Type":"application/json"};
+function accessToken(opts?:HubSpotHttpOptions){
+  const token=opts?.accessToken??env.HUBSPOT_ACCESS_TOKEN;
+  if(!token) throw new Error("HUBSPOT_NOT_CONFIGURED");
+  return token;
 }
-async function hs(path:string,init:RequestInit={}){
+function headers(opts?:HubSpotHttpOptions){
+  return {Authorization:`Bearer ${accessToken(opts)}`,"Content-Type":"application/json"};
+}
+async function hs(path:string,init:RequestInit={},opts?:HubSpotHttpOptions){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),env.HTTP_TIMEOUT_MS);
+  const timer=setTimeout(()=>controller.abort(),opts?.timeoutMs??env.HTTP_TIMEOUT_MS);
+  const fetchImpl=opts?.fetch??fetch;
   try{
-    const r=await fetch(`https://api.hubapi.com${path}`,{...init,signal:controller.signal,headers:{...headers(),...(init.headers??{})}});
+    const r=await fetchImpl(`https://api.hubapi.com${path}`,{...init,signal:controller.signal,headers:{...headers(opts),...(init.headers??{})}});
     const text=await r.text();
     if(!r.ok) throw new Error(`HUBSPOT_${r.status}:${text.slice(0,500)}`);
     return text?JSON.parse(text):{};
@@ -47,22 +60,91 @@ export async function findContactByEmail(email:string):Promise<string|null>{
   return uniqueHubSpotContactId(j);
 }
 
-async function noteToContactAssociationType():Promise<number>{
-  const j:any=await hs(`/crm/v4/associations/notes/contacts/labels`);
+async function noteToContactAssociationType(opts?:HubSpotHttpOptions):Promise<number>{
+  if(opts?.associationTypeId) return opts.associationTypeId;
+  const j:any=await hs(`/crm/v4/associations/notes/contacts/labels`,{},opts);
   const types=Array.isArray(j.results)?j.results:[];
   const preferred=types.find((x:any)=>x.category==="HUBSPOT_DEFINED"&&/note/i.test(`${x.label??""} ${x.typeId??""}`))??types.find((x:any)=>x.category==="HUBSPOT_DEFINED")??types[0];
   if(!preferred?.typeId) throw new Error("HUBSPOT_NOTE_CONTACT_ASSOCIATION_NOT_FOUND");
   return Number(preferred.typeId);
 }
 
-export async function createContactNote(contactId:string,body:string):Promise<string>{
-  const associationTypeId=await noteToContactAssociationType();
-  const j:any=await hs(`/crm/v3/objects/notes`,{method:"POST",body:JSON.stringify({
-    properties:{hs_timestamp:new Date().toISOString(),hs_note_body:body},
+export function noteCreatePayload(contactId:string,body:string,associationTypeId:number,attachmentIds:string[]=[]){
+  const properties:Record<string,string>={hs_timestamp:new Date().toISOString(),hs_note_body:body};
+  if(attachmentIds.length) properties.hs_attachment_ids=attachmentIds.join(";");
+  return {
+    properties,
     associations:[{to:{id:contactId},types:[{associationCategory:"HUBSPOT_DEFINED",associationTypeId}]}]
-  })});
+  };
+}
+
+export function privateFileUploadOptions(){
+  return {access:"PRIVATE",overwrite:false,duplicateValidationStrategy:"NONE",duplicateValidationScope:"ENTIRE_PORTAL"};
+}
+
+export async function uploadPrivateFile(input:{fileName:string;bytes:Buffer;contentType:string},opts?:HubSpotHttpOptions):Promise<string>{
+  const form=new FormData();
+  form.append("file",new Blob([new Uint8Array(input.bytes)],{type:input.contentType||"application/octet-stream"}),input.fileName);
+  form.append("fileName",input.fileName);
+  form.append("folderPath","/caseclosedfl-validator");
+  form.append("options",JSON.stringify(privateFileUploadOptions()));
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),opts?.timeoutMs??env.HTTP_TIMEOUT_MS);
+  const fetchImpl=opts?.fetch??fetch;
+  try{
+    const r=await fetchImpl("https://api.hubapi.com/files/v3/files",{
+      method:"POST",
+      signal:controller.signal,
+      headers:{Authorization:`Bearer ${accessToken(opts)}`},
+      body:form
+    });
+    const text=await r.text();
+    if(!r.ok) throw new Error(`HUBSPOT_${r.status}:${text.slice(0,500)}`);
+    const j=text?JSON.parse(text):{};
+    if(!j.id) throw new Error("HUBSPOT_FILE_ID_MISSING");
+    return String(j.id);
+  }finally{clearTimeout(timer);}
+}
+
+export async function uploadScreenshotFiles(screenshots:Array<Pick<ValidationScreenshot,"file_name"|"bytes"|"content_type">>,opts?:HubSpotHttpOptions){
+  const attachmentIds:string[]=[];
+  const errors:string[]=[];
+  for(const shot of screenshots){
+    try{
+      attachmentIds.push(await uploadPrivateFile({
+        fileName:shot.file_name,
+        bytes:shot.bytes,
+        contentType:shot.content_type
+      },opts));
+    }catch(e:any){
+      errors.push(String(e?.message??"HUBSPOT_FILE_UPLOAD_FAILED").slice(0,300));
+    }
+  }
+  return {attachmentIds,errors};
+}
+
+export async function createContactNote(contactId:string,body:string,attachmentIds:string[]=[],opts?:HubSpotHttpOptions):Promise<string>{
+  const associationTypeId=await noteToContactAssociationType(opts);
+  const j:any=await hs(`/crm/v3/objects/notes`,{method:"POST",body:JSON.stringify(noteCreatePayload(contactId,body,associationTypeId,attachmentIds))},opts);
   if(!j.id) throw new Error("HUBSPOT_NOTE_ID_MISSING");
   return String(j.id);
+}
+
+export async function createContactNoteWithScreenshots(contactId:string,body:string,validationId?:string,opts?:HubSpotHttpOptions){
+  const attachmentIds:string[]=[];
+  const uploadErrors:string[]=[];
+  if(validationId){
+    try{
+      const shots=await listValidationScreenshots(validationId,env.HUBSPOT_NOTE_MAX_SCREENSHOTS);
+      const uploaded=await uploadScreenshotFiles(shots,opts);
+      attachmentIds.push(...uploaded.attachmentIds);
+      uploadErrors.push(...uploaded.errors);
+    }catch(e:any){
+      uploadErrors.push(String(e?.message??"HUBSPOT_SCREENSHOT_ATTACH_FAILED").slice(0,300));
+    }
+  }
+  const noteId=await createContactNote(contactId,body,attachmentIds,opts);
+  return {noteId,attachmentIds,uploadErrors};
 }
 
 export interface HubSpotCrmNote { id:string; body:string; timestampMs:number; }

@@ -1,5 +1,6 @@
 import { assertSafePublicUrl } from "./http.js";
 import type { Capability } from "./composio.js";
+import { captureScreenshotOne, screenshotOneConfigured, screenshotToolResult } from "./screenshotone.js";
 
 export type DirectSlug =
   |"direct:exa.search"
@@ -7,7 +8,8 @@ export type DirectSlug =
   |"direct:firecrawl.scrape"
   |"direct:scrapingbee.scrape"
   |"direct:scrapfly.scrape"
-  |"direct:steel.scrape";
+  |"direct:steel.scrape"
+  |"direct:screenshotone.capture";
 
 export interface DirectKeys {
   EXA_API_KEY?:string;
@@ -17,6 +19,8 @@ export interface DirectKeys {
   SCRAPFLY_API_KEY?:string;
   STEEL_API_KEY?:string;
   STEEL_BASE_URL?:string;
+  SCREENSHOTONE_ACCESS_KEY?:string;
+  SCREENSHOTONE_SECRET_KEY?:string;
 }
 
 export interface DirectExecuteOptions {
@@ -26,8 +30,8 @@ export interface DirectExecuteOptions {
 }
 
 const SEARCH_SLUGS:DirectSlug[]=["direct:exa.search","direct:tavily.search"];
-const EXTRACT_SLUGS:DirectSlug[]=["direct:firecrawl.scrape","direct:scrapingbee.scrape","direct:scrapfly.scrape"];
-const BROWSER_SLUGS:DirectSlug[]=["direct:steel.scrape","direct:firecrawl.scrape","direct:scrapingbee.scrape"];
+const EXTRACT_SLUGS:DirectSlug[]=["direct:firecrawl.scrape","direct:scrapingbee.scrape","direct:scrapfly.scrape","direct:screenshotone.capture"];
+const BROWSER_SLUGS:DirectSlug[]=["direct:steel.scrape","direct:firecrawl.scrape","direct:scrapingbee.scrape","direct:screenshotone.capture"];
 
 function keyed(value?:string){return typeof value==="string"&&value.trim().length>0;}
 
@@ -50,7 +54,7 @@ export function biasSearchQuery(query:unknown,officialUrl:unknown){
 }
 
 export function slugNeedsUrl(slug:DirectSlug){
-  return slug.endsWith(".scrape");
+  return slug.endsWith(".scrape")||slug.endsWith(".capture");
 }
 
 export function selectDirectFallbacks(cap:Capability,keys:DirectKeys):DirectSlug[]{
@@ -61,6 +65,7 @@ export function selectDirectFallbacks(cap:Capability,keys:DirectKeys):DirectSlug
   if(keyed(keys.SCRAPINGBEE_API_KEY)) available.add("direct:scrapingbee.scrape");
   if(keyed(keys.SCRAPFLY_API_KEY)) available.add("direct:scrapfly.scrape");
   if(keyed(keys.STEEL_API_KEY)) available.add("direct:steel.scrape");
+  if(screenshotOneConfigured(keys)) available.add("direct:screenshotone.capture");
   const order=
     cap==="WEB_SEARCH"?SEARCH_SLUGS
     :cap==="WEB_EXTRACT"?EXTRACT_SLUGS
@@ -227,5 +232,9 @@ export async function executeDirectTool(slug:DirectSlug,args:Record<string,unkno
   if(slug==="direct:scrapingbee.scrape") return scrapeScrapingBee(url,keys,opts);
   if(slug==="direct:scrapfly.scrape") return scrapeScrapfly(url,keys,opts);
   if(slug==="direct:steel.scrape") return scrapeSteel(url,keys,opts);
+  if(slug==="direct:screenshotone.capture"){
+    const capture=await captureScreenshotOne(url,keys,{fetch:opts.fetch,timeoutMs:opts.timeoutMs});
+    return {...screenshotToolResult(capture),bytes:capture.bytes};
+  }
   throw new Error(`DIRECT_TOOL_UNKNOWN:${slug}`);
 }

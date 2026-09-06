@@ -28,6 +28,8 @@ describe("optional direct-search env",()=>{
     expect(parsed.SCRAPFLY_API_KEY).toBe("");
     expect(parsed.SCREENSHOTONE_ACCESS_KEY).toBe("");
     expect(parsed.SCREENSHOTONE_SECRET_KEY).toBe("");
+    expect(parsed.NVIDIA_VISION_MODEL).toBe("meta/llama-3.2-11b-vision-instruct");
+    expect(parsed.HUBSPOT_NOTE_MAX_SCREENSHOTS).toBe(3);
     expect(parsed.COMPOSIO_API_KEY).toBe("");
     expect(parsed.STEEL_API_KEY).toBe("");
   });

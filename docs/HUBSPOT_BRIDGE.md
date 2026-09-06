@@ -33,7 +33,7 @@ HubSpot CRM notes (read-only)
         -> validator runtime (skipped when this intake fingerprint already has validation_id)
         -> evidence + deterministic outcome
         -> WhatsApp-style `hubspot_note`
-        -> HubSpot NOTE create (only write)
+        -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
 
 Intake note ids (plus the newest supplemental id) are persisted as a fingerprint for idempotency. A later supplemental CaseClosedFL note creates a new fingerprint, reruns validation, and writes a new outcome note. If a validation NOTE already exists for the same `validation_id` or intake fingerprint, the bridge does not write a duplicate.
@@ -51,7 +51,7 @@ HubSpot email/supplemental form ──┘
         -> validator runtime (skipped when a prior attempt already stored validation_id for this pair)
         -> evidence + deterministic outcome
         -> WhatsApp-style `hubspot_note`
-        -> HubSpot NOTE create (only write)
+        -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
 
 If the supplemental form arrives after the initial form, a later sync reruns validation with the newest pair and creates a new outcome note. Submission conversion IDs are persisted for idempotency. Emails that only have the supplemental form wait without occupying the sync batch. Contact lookup and note write failures do not re-run validation for the same submission pair.
@@ -66,7 +66,7 @@ HUBSPOT_ACCESS_TOKEN=<runtime secret>
 # HUBSPOT_SYNC_MODE=auto   # default; crm_notes when form GUIDs are empty
 ```
 
-The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode.
+The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode. Attaching official-source screenshots also needs HubSpot Files upload. If upload fails (including a missing files scope), the WhatsApp-style text NOTE is still written and the upload error is recorded on the sync result.
 
 Optional forms mode:
 
@@ -100,3 +100,5 @@ x-admin-secret: ...
 ## Failure behavior
 
 The bridge fails closed. It does not invent case type or state, create contacts, update contacts, pick a contact when more than one association exists, or attach a note when the intake contact cannot be resolved. Validation can still run through the normal `/v1/validations` API independently of HubSpot.
+
+Official-source screenshots captured during the validation run (ScreenshotOne + NVIDIA OCR) are persisted against `validation_id` and attached on the outcome NOTE (`hs_attachment_ids`, max `HUBSPOT_NOTE_MAX_SCREENSHOTS`). File-upload failures do not block the text note.
