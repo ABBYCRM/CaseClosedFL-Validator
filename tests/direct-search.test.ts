@@ -43,6 +43,25 @@ describe("direct fallback selection",()=>{
   it("returns no fallbacks when no direct keys are present",()=>{
     expect(selectDirectFallbacks("WEB_SEARCH",{})).toEqual([]);
   });
+  it("appends signed ScreenshotOne capture last for extract/browser/public-record",()=>{
+    expect(selectDirectFallbacks("WEB_EXTRACT",{
+      FIRECRAWL_API_KEY:"f",SCREENSHOTONE_ACCESS_KEY:"ak",SCREENSHOTONE_SECRET_KEY:"sk"
+    })).toEqual(["direct:firecrawl.scrape","direct:screenshotone.capture"]);
+    expect(selectDirectFallbacks("JS_BROWSER",{
+      STEEL_API_KEY:"st",SCREENSHOTONE_ACCESS_KEY:"ak",SCREENSHOTONE_SECRET_KEY:"sk"
+    })).toEqual(["direct:steel.scrape","direct:screenshotone.capture"]);
+    expect(selectDirectFallbacks("PUBLIC_RECORD_LOOKUP",{
+      SCREENSHOTONE_ACCESS_KEY:"ak",SCREENSHOTONE_SECRET_KEY:"sk"
+    })).toEqual(["direct:screenshotone.capture"]);
+    expect(selectDirectFallbacks("WEB_SEARCH",{
+      EXA_API_KEY:"x",SCREENSHOTONE_ACCESS_KEY:"ak",SCREENSHOTONE_SECRET_KEY:"sk"
+    })).toEqual(["direct:exa.search"]);
+  });
+  it("skips ScreenshotOne capture when no official URL is present",()=>{
+    expect(selectRunnableFallbacks("WEB_EXTRACT",{
+      SCREENSHOTONE_ACCESS_KEY:"ak",SCREENSHOTONE_SECRET_KEY:"sk"
+    },{query:"x"})).toEqual([]);
+  });
 });
 
 describe("jurisdiction source query bias",()=>{

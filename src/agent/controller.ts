@@ -7,6 +7,7 @@ import { env } from "../config/env.js";
 import { openClawWriteNote } from "../tools/openclaw.js";
 import { buildOutcome } from "../validation/outcome.js";
 import { listEvidence } from "../evidence/ledger.js";
+import { listScreenshotRefs } from "../evidence/screenshots.js";
 
 export async function startValidation(input:unknown){
   const lead=Lead.parse(input); const state=initialState();
@@ -21,7 +22,7 @@ export async function startValidation(input:unknown){
       const delivery=await openClawWriteNote(result.agent_note.summary,{validation_id:id,lead_id:lead.lead_id,status:result.status,agent_note:result.agent_note,result_hash:result.result_hash});
       await audit("OPENCLAW_NOTE_DELIVERY",id,delivery as Record<string,unknown>);
     }
-    return {validation_id:id,lead_id:lead.lead_id,...result};
+    return {validation_id:id,lead_id:lead.lead_id,...result,screenshots:await listScreenshotRefs(id)};
   }catch(e:any){
     const message=(e?.message??"EXECUTION_FAILURE").slice(0,1000);state.errors.push(message);state.blockers.push(message);
     const evidence=await listEvidence(id);
@@ -29,6 +30,6 @@ export async function startValidation(input:unknown){
     await q("UPDATE validation_runs SET status='INCOMPLETE',self_state=$2,completed_at=now() WHERE id=$1",[id,state]);
     await q(`INSERT INTO validation_results(validation_id,result,result_hash,engine_version,knowledge_version) VALUES($1,$2,$3,$4,$5)`,[id,body,body.result_hash,env.ENGINE_VERSION,env.KNOWLEDGE_VERSION]);
     await audit("VALIDATION_FAILED",id,{error:message,result_hash:body.result_hash});
-    return {validation_id:id,lead_id:lead.lead_id,...body};
+    return {validation_id:id,lead_id:lead.lead_id,...body,screenshots:await listScreenshotRefs(id)};
   }
 }

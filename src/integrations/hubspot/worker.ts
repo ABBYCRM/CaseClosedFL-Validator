@@ -3,7 +3,7 @@ import { q } from "../../db/index.js";
 import { startValidation } from "../../agent/controller.js";
 import { buildOutcome } from "../../validation/outcome.js";
 import {
-  createContactNote, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
+  createContactNoteWithScreenshots, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
   listForms, readContacts, readNotes, searchNotesSince, type HubSpotCrmContact, type HubSpotCrmNote,
   type HubSpotSubmission
 } from "./client.js";
@@ -93,10 +93,10 @@ async function processEmail(email:string,forms:FormRole){
       await q(`UPDATE hubspot_form_submissions SET validation_id=$2,last_error=NULL WHERE lower(contact_email)=lower($1) AND form_guid IN ($3,$4) AND submitted_at<=to_timestamp($5/1000.0)`,[email,result.validation_id,forms.initial,forms.supplemental,latestMs]);
     }
     const noteBody=`${result.hubspot_note??result.human_note??result.agent_note?.text??result.agent_note?.summary}\n\nValidation ID: ${result.validation_id}`;
-    const noteId=await createContactNote(contactId,noteBody);
+    const written=await createContactNoteWithScreenshots(contactId,noteBody,result.validation_id);
     await q(`UPDATE hubspot_form_submissions SET processed_at=now(),validation_id=$2,note_id=$3,last_error=NULL
-      WHERE lower(contact_email)=lower($1) AND form_guid IN ($4,$5) AND submitted_at<=to_timestamp($6/1000.0)`,[email,result.validation_id,noteId,forms.initial,forms.supplemental,latestMs]);
-    return{email,status:"PROCESSED",validation_id:result.validation_id,note_id:noteId};
+      WHERE lower(contact_email)=lower($1) AND form_guid IN ($4,$5) AND submitted_at<=to_timestamp($6/1000.0)`,[email,result.validation_id,written.noteId,forms.initial,forms.supplemental,latestMs]);
+    return{email,status:"PROCESSED",validation_id:result.validation_id,note_id:written.noteId,attachment_ids:written.attachmentIds,attachment_errors:written.uploadErrors};
   }catch(e:any){
     const message=String(e?.message??"HUBSPOT_BRIDGE_PROCESSING_FAILED").slice(0,1000);
     await q(`UPDATE hubspot_form_submissions SET last_error=$2 WHERE lower(contact_email)=lower($1) AND processed_at IS NULL`,[email,message]);
@@ -201,9 +201,9 @@ async function processCrmIntake(contact:HubSpotCrmContact,contactNotes:HubSpotCr
       await q(`UPDATE hubspot_crm_intakes SET processed_at=now(),validation_id=COALESCE($2,validation_id),outcome_note_id=$3,last_error=NULL WHERE fingerprint=$1`,[fingerprint,result.validation_id??null,duplicate]);
       return{contact_id:contact.id,email:contact.email,status:"OUTCOME_NOTE_EXISTS",fingerprint,note_id:duplicate,validation_id:result.validation_id};
     }
-    const noteId=await createContactNote(contact.id,noteBody);
-    await q(`UPDATE hubspot_crm_intakes SET processed_at=now(),validation_id=COALESCE($2,validation_id),outcome_note_id=$3,last_error=NULL WHERE fingerprint=$1`,[fingerprint,result.validation_id??null,noteId]);
-    return{contact_id:contact.id,email:contact.email,status:"PROCESSED",fingerprint,validation_id:result.validation_id,note_id:noteId};
+    const written=await createContactNoteWithScreenshots(contact.id,noteBody,result.validation_id);
+    await q(`UPDATE hubspot_crm_intakes SET processed_at=now(),validation_id=COALESCE($2,validation_id),outcome_note_id=$3,last_error=NULL WHERE fingerprint=$1`,[fingerprint,result.validation_id??null,written.noteId]);
+    return{contact_id:contact.id,email:contact.email,status:"PROCESSED",fingerprint,validation_id:result.validation_id,note_id:written.noteId,attachment_ids:written.attachmentIds,attachment_errors:written.uploadErrors};
   }catch(e:any){
     const message=String(e?.message??"HUBSPOT_CRM_NOTE_PROCESSING_FAILED").slice(0,1000);
     await q(`UPDATE hubspot_crm_intakes SET last_error=$2 WHERE fingerprint=$1 AND processed_at IS NULL`,[fingerprint,message]);

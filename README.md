@@ -37,6 +37,8 @@ CaseClosedFL-Validator
     -> source registry / RAG
     -> bounded Composio discovery + execution
     -> direct read-only provider fallbacks when Composio is down
+    -> ScreenshotOne signed capture of official source URLs
+    -> optional NVIDIA vision OCR of those screenshots (observed text only)
     -> evidence ledger
     -> optional NVIDIA semantic extraction
     -> deterministic qualification
@@ -62,7 +64,9 @@ Composio is used through its v3.1 session/tool-router API with a project key (`a
 
 Tool discovery uses `/search` with `{ queries: [{ use_case }] }` (a lone `{ query }` is rejected). If that path is empty or errors, the router falls back to `execute_meta` `COMPOSIO_SEARCH_TOOLS`. Toolkit execution still requires an active Composio connection for that toolkit (`has_active_connection`); session create succeeding with an `ak_` key does not by itself link Firecrawl/Tavily/etc.
 
-When the Composio key is missing, invalid, or the session/search/execute path fails, `runCapability` falls back to the same read-only capabilities through direct provider APIs that are present in the environment: Exa/Tavily for search, Firecrawl/ScrapingBee/Scrapfly for extract, and Steel then Firecrawl/ScrapingBee for browser/public-record lookup against the official jurisdiction URL. Direct executions are persisted as `direct:<provider>.<action>` rows. Incident/business/court/provider queries are biased to `site:<officialHost>` plus the `source.url` from `knowledge/jurisdictions`. AUTHORIZED sources still fail closed without lead authorization.
+When the Composio key is missing, invalid, or the session/search/execute path fails, `runCapability` falls back to the same read-only capabilities through direct provider APIs that are present in the environment: Exa/Tavily for search, Firecrawl/ScrapingBee/Scrapfly for extract, Steel then Firecrawl/ScrapingBee for browser/public-record lookup, and `direct:screenshotone.capture` last for WEB_EXTRACT / JS_BROWSER / PUBLIC_RECORD_LOOKUP when ScreenshotOne keys are present. Direct executions are persisted as `direct:<provider>.<action>` rows. Incident/business/court/provider queries are biased to `site:<officialHost>` plus the `source.url` from `knowledge/jurisdictions`. AUTHORIZED sources still fail closed without lead authorization.
+
+When an official source URL is checked, the runtime also captures that page with a **signed** ScreenshotOne request (HMAC-SHA256 of the canonical query string; `secret_key` is never sent as a parameter). NVIDIA vision (`NVIDIA_VISION_MODEL`, default `meta/llama-3.2-11b-vision-instruct`) OCRs the image. Extracted text is stored as `OFFICIAL_SOURCE_SCREENSHOT_OBSERVED` — text observed in the screenshot, not government-record truth. If vision is unavailable, capture still proceeds and OCR fails soft. Up to `HUBSPOT_NOTE_MAX_SCREENSHOTS` images are uploaded to HubSpot Files and attached on the validation NOTE (`hs_attachment_ids`). A files-scope error still writes the WhatsApp-style text note.
 
 Allowed capabilities:
 
@@ -115,6 +119,7 @@ No MongoDB, no CRM datastore, no separate vector service in v1.
 Public:
 
 ```text
+GET  /                               service index (HTML or ?format=json)
 POST /v1/validations                 scope: validate
 GET  /v1/validations/:id             scope: read-result
 GET  /v1/validations/:id/evidence    scope: read-result
@@ -230,6 +235,7 @@ SCRAPINGBEE_API_KEY
 SCRAPFLY_API_KEY
 SCREENSHOTONE_ACCESS_KEY
 SCREENSHOTONE_SECRET_KEY
+NVIDIA_VISION_MODEL
 OPENCLAW_TOKEN
 HUBSPOT_ACCESS_TOKEN
 HUBSPOT_INITIAL_FORM_GUID

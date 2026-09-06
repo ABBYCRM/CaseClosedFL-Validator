@@ -98,7 +98,7 @@ async function runDirectCapability(validationId:string,state:SelfState,cap:Capab
     const id=await persistExecution(validationId,slug,cap,fp,args);
     try{
       const result=await executeDirectTool(slug,args,env,{timeoutMs:env.TOOL_TIMEOUT_MS,maxChars:env.MAX_DOCUMENT_CHARS});
-      await q(`UPDATE tool_executions SET status='SUCCESS',result=$2,completed_at=now() WHERE id=$1`,[id,result]);
+      await q(`UPDATE tool_executions SET status='SUCCESS',result=$2,completed_at=now() WHERE id=$1`,[id,persistableToolResult(slug,result)]);
       state.previousToolResults.push(`${slug}:SUCCESS`);
       state.availableTools=[...new Set([...state.availableTools,slug])].slice(-60);
       state.actionHistory.push({fingerprint:fp,action:`${cap}:${slug}`,status:"SUCCESS",at:new Date().toISOString()});
@@ -147,6 +147,14 @@ export async function runCapability(validationId:string,state:SelfState,cap:Capa
   finishExecutionCycle(state,tryDirect?`DIRECT:${cap}`:`COMPOSIO:${cap}`,`All safe candidate tools failed: ${errors.join("|").slice(0,500)}`,false);
   if(state.toolCalls>=env.MAX_TOOL_CALLS) state.blockers.push("TOOL_BUDGET_EXHAUSTED");
   throw new Error(`CAPABILITY_FAILED:${cap}:${errors.join("|").slice(0,900)}`);
+}
+
+function persistableToolResult(slug:string,result:unknown){
+  if(slug==="direct:screenshotone.capture"&&result&&typeof result==="object"){
+    const {bytes:_bytes,...rest}=result as Record<string,unknown>;
+    return rest;
+  }
+  return result;
 }
 
 export function observationContains(result:unknown,needles:string[]){
