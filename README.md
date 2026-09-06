@@ -129,6 +129,7 @@ Admin/token-only:
 GET    /admin/tokens
 POST   /admin/tokens
 DELETE /admin/tokens/:id
+POST   /admin/hubspot/sync
 ```
 
 The tiny admin UI is served at `/admin/` and does only token mint/list/revoke. Plaintext tokens are shown once; PostgreSQL stores only an HMAC fingerprint, prefix, scopes and timestamps.

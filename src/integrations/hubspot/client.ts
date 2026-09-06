@@ -64,3 +64,121 @@ export async function createContactNote(contactId:string,body:string):Promise<st
   if(!j.id) throw new Error("HUBSPOT_NOTE_ID_MISSING");
   return String(j.id);
 }
+
+export interface HubSpotCrmNote { id:string; body:string; timestampMs:number; }
+export interface HubSpotCrmContact {
+  id:string;
+  email?:string;
+  firstName?:string;
+  lastName?:string;
+  phone?:string;
+  state?:string;
+  zip?:string;
+  city?:string;
+}
+
+const CONTACT_PROPS=["email","firstname","lastname","phone","mobilephone","state","hs_state_code","zip","city"];
+
+function noteTimestampMs(props:any){
+  const raw=props?.hs_timestamp??props?.hs_lastmodifieddate??props?.hs_createdate;
+  if(raw===undefined||raw===null||raw==="")return 0;
+  const n=Number(raw);
+  if(Number.isFinite(n)&&n>0)return n;
+  const parsed=Date.parse(String(raw));
+  return Number.isNaN(parsed)?0:parsed;
+}
+
+function asNote(row:any):HubSpotCrmNote|undefined{
+  const id=row?.id?String(row.id):undefined;
+  if(!id)return;
+  return{id,body:String(row.properties?.hs_note_body??""),timestampMs:noteTimestampMs(row.properties??{})};
+}
+
+function asContact(row:any):HubSpotCrmContact|undefined{
+  const id=row?.id?String(row.id):undefined;
+  if(!id)return;
+  const p=row.properties??{};
+  return{
+    id,
+    email:p.email||undefined,
+    firstName:p.firstname||undefined,
+    lastName:p.lastname||undefined,
+    phone:p.phone||p.mobilephone||undefined,
+    state:p.hs_state_code||p.state||undefined,
+    zip:p.zip||undefined,
+    city:p.city||undefined
+  };
+}
+
+export async function searchNotesSince(sinceMs:number,after?:string){
+  const body:Record<string,unknown>={
+    filterGroups:[{filters:[{propertyName:"hs_timestamp",operator:"GTE",value:String(sinceMs)}]}],
+    properties:["hs_note_body","hs_timestamp","hs_lastmodifieddate"],
+    sorts:[{propertyName:"hs_timestamp",direction:"DESCENDING"}],
+    limit:100
+  };
+  if(after)body.after=after;
+  const j:any=await hs(`/crm/v3/objects/notes/search`,{method:"POST",body:JSON.stringify(body)});
+  return{
+    results:((j.results??[]).map(asNote).filter(Boolean) as HubSpotCrmNote[]),
+    after:j.paging?.next?.after as string|undefined
+  };
+}
+
+export async function getNoteContactIds(noteIds:string[]):Promise<Map<string,string[]>>{
+  const out=new Map<string,string[]>();
+  for(let i=0;i<noteIds.length;i+=100){
+    const chunk=noteIds.slice(i,i+100);
+    if(!chunk.length)continue;
+    const j:any=await hs(`/crm/v4/associations/notes/contacts/batch/read`,{method:"POST",body:JSON.stringify({inputs:chunk.map(id=>({id}))})});
+    for(const row of j.results??[]){
+      const from=String(row.from?.id??"");
+      const ids=(row.to??[]).map((t:any)=>String(t.toObjectId??t.id??"")).filter(Boolean);
+      if(from)out.set(from,ids);
+    }
+  }
+  return out;
+}
+
+export async function getContactNoteIds(contactId:string){
+  const ids:string[]=[]; let after:string|undefined;
+  do{
+    const qs=new URLSearchParams({limit:"500"}); if(after)qs.set("after",after);
+    const j:any=await hs(`/crm/v4/objects/contacts/${encodeURIComponent(contactId)}/associations/notes?${qs}`);
+    for(const row of j.results??[]){
+      const id=String(row.toObjectId??row.id??"");
+      if(id)ids.push(id);
+    }
+    after=j.paging?.next?.after;
+  }while(after);
+  return ids;
+}
+
+export async function readNotes(noteIds:string[]):Promise<HubSpotCrmNote[]>{
+  const out:HubSpotCrmNote[]=[];
+  for(let i=0;i<noteIds.length;i+=100){
+    const chunk=noteIds.slice(i,i+100);
+    if(!chunk.length)continue;
+    const j:any=await hs(`/crm/v3/objects/notes/batch/read`,{method:"POST",body:JSON.stringify({properties:["hs_note_body","hs_timestamp","hs_lastmodifieddate"],inputs:chunk.map(id=>({id}))})});
+    for(const row of j.results??[]){
+      const note=asNote(row);
+      if(note)out.push(note);
+    }
+  }
+  return out;
+}
+
+export async function readContacts(contactIds:string[]):Promise<Map<string,HubSpotCrmContact>>{
+  const out=new Map<string,HubSpotCrmContact>();
+  for(let i=0;i<contactIds.length;i+=100){
+    const chunk=contactIds.slice(i,i+100);
+    if(!chunk.length)continue;
+    const j:any=await hs(`/crm/v3/objects/contacts/batch/read`,{method:"POST",body:JSON.stringify({properties:CONTACT_PROPS,inputs:chunk.map(id=>({id}))})});
+    for(const row of j.results??[]){
+      const contact=asContact(row);
+      if(contact)out.set(contact.id,contact);
+    }
+  }
+  return out;
+}
+

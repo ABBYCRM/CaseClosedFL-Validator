@@ -9,4 +9,4 @@
 - Raw external responses are not copied wholesale into evidence; the ledger stores digests and bounded observations to minimize PII retention.
 - `UNKNOWN`, `NOT_CORROBORATED`, tool failure, and `INCOMPLETE` are valid states. They must never be converted to fraud or falsity automatically.
 - OpenClaw Gateway credentials are effectively operator credentials. Use a dedicated isolated Gateway if enabling the adapter.
-- HubSpot is out of scope except the optional standalone bridge: read two allowlisted forms, look up a contact by email, and create one NOTE. Contact/deal/ticket updates and other CRM writes stay denied. See `docs/HUBSPOT_BRIDGE.md`.
+- HubSpot is out of scope except the optional standalone bridge: read CaseClosedFL CRM intake notes (or two allowlisted forms when configured), look up the associated contact, and create one validation NOTE. Contact/deal/ticket updates and other CRM writes stay denied. See `docs/HUBSPOT_BRIDGE.md`.

@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {applyDotEnv,hubspotAllowlistConfigured,parseEnv} from "../src/config/env.js";
+import {applyDotEnv,assertHubSpotProductionConfig,hubspotAllowlistConfigured,parseEnv,resolveHubSpotSyncMode} from "../src/config/env.js";
 
 describe("local .env loader",()=>{
   it("fills missing keys without overriding the process environment",()=>{
@@ -60,5 +60,48 @@ describe("HubSpot production allowlist",()=>{
     expect(hubspotAllowlistConfigured({
       HUBSPOT_INITIAL_FORM_ID:"guid-initial"
     })).toBe(false);
+  });
+});
+
+describe("HubSpot sync mode selection",()=>{
+  it("defaults auto to crm_notes when the form allowlist is not configured",()=>{
+    expect(resolveHubSpotSyncMode({HUBSPOT_SYNC_MODE:"auto"})).toBe("crm_notes");
+    expect(parseEnv({}).HUBSPOT_SYNC_MODE).toBe("auto");
+  });
+  it("defaults auto to forms when both allowlist sides are present",()=>{
+    expect(resolveHubSpotSyncMode({
+      HUBSPOT_SYNC_MODE:"auto",
+      HUBSPOT_INITIAL_FORM_ID:"guid-initial",
+      HUBSPOT_EMAIL_FORM_ID:"guid-email"
+    })).toBe("forms");
+  });
+  it("honors an explicit crm_notes mode even if form GUIDs are set",()=>{
+    expect(resolveHubSpotSyncMode({
+      HUBSPOT_SYNC_MODE:"crm_notes",
+      HUBSPOT_INITIAL_FORM_ID:"guid-initial",
+      HUBSPOT_EMAIL_FORM_ID:"guid-email"
+    })).toBe("crm_notes");
+  });
+  it("honors an explicit forms mode",()=>{
+    expect(resolveHubSpotSyncMode({HUBSPOT_SYNC_MODE:"forms"})).toBe("forms");
+  });
+  it("does not require the two-form allowlist for CRM-note production",()=>{
+    expect(()=>assertHubSpotProductionConfig({
+      HUBSPOT_ACCESS_TOKEN:"pat-token",
+      HUBSPOT_SYNC_MODE:"auto"
+    })).not.toThrow();
+    expect(()=>assertHubSpotProductionConfig({
+      HUBSPOT_ACCESS_TOKEN:"pat-token",
+      HUBSPOT_SYNC_MODE:"crm_notes"
+    })).not.toThrow();
+  });
+  it("still requires the two-form allowlist when forms mode is selected",()=>{
+    expect(()=>assertHubSpotProductionConfig({
+      HUBSPOT_ACCESS_TOKEN:"pat-token",
+      HUBSPOT_SYNC_MODE:"forms"
+    })).toThrow(/HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED/);
+  });
+  it("still requires the access token in either mode",()=>{
+    expect(()=>assertHubSpotProductionConfig({HUBSPOT_SYNC_MODE:"crm_notes"})).toThrow(/HUBSPOT_ACCESS_TOKEN_REQUIRED/);
   });
 });

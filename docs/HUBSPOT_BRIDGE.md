@@ -1,19 +1,46 @@
 # HubSpot standalone bridge
 
-Purpose: keep `CaseClosedFL-Validator` independently deployable while allowing it to consume the two CaseClosedFL intake forms and return a human-readable validation outcome to HubSpot.
+Purpose: keep `CaseClosedFL-Validator` independently deployable while allowing it to consume CaseClosedFL intake and return a human-readable validation outcome to HubSpot.
+
+Production CaseClosedFL (Abby-HubSpot) upserts CRM contacts and writes structured intake NOTES. It does not use HubSpot marketing forms. The bridge therefore has two read paths and one write:
+
+- `crm_notes` (default when the two-form allowlist is not configured): read recent CaseClosedFL intake notes + optional supplemental notes, map to Lead, validate, write a WhatsApp-style outcome NOTE on the same contact.
+- `forms` (kept for deployments that still have form GUIDs): read the two allowlisted marketing forms, merge by email, validate, write a NOTE.
 
 ## Access boundary
 
 The bridge is intentionally narrow:
 
-- READ: exactly two allowlisted HubSpot form GUIDs (initial lead capture + supplemental/email form)
-- READ: contact lookup by submitted email, only to find the record that should receive the note
+- READ (`crm_notes`): recent CRM notes and the associated contact properties (email, name, phone, state, ZIP)
+- READ (`forms`): exactly two allowlisted HubSpot form GUIDs (initial lead capture + supplemental/email form) and contact lookup by submitted email
 - WRITE: create a NOTE associated to that contact
 - DENY BY DESIGN: contact updates, deal updates, ticket updates, marketing email changes, form edits, lifecycle-stage changes, owner changes, messaging, and arbitrary CRM writes
 
-`HUBSPOT_INITIAL_FORM_GUID` and `HUBSPOT_EMAIL_FORM_GUID` are preferred. The older `*_FORM_ID` names remain supported as aliases. Exact form names can also be used, but resolution fails unless each name matches exactly one active form.
+`HUBSPOT_SYNC_MODE=auto` (default) selects `forms` when the two-form allowlist is configured and `crm_notes` otherwise. Set `HUBSPOT_SYNC_MODE=forms` or `HUBSPOT_SYNC_MODE=crm_notes` to force a path.
+
+`HUBSPOT_INITIAL_FORM_GUID` and `HUBSPOT_EMAIL_FORM_GUID` are preferred for forms mode. The older `*_FORM_ID` names remain supported as aliases. Exact form names can also be used, but resolution fails unless each name matches exactly one active form.
 
 ## Data flow
+
+### CRM notes (production)
+
+```text
+HubSpot CRM notes (read-only)
+        -> keep CaseClosedFL Qualified Personal Injury Intake
+        -> merge newest CaseClosedFL supplemental note if present
+        -> contact properties (email / name / phone / state / ZIP)
+        -> CaseClosedFL Lead schema (fail closed; never invent fields)
+        -> validator runtime (skipped when this intake fingerprint already has validation_id)
+        -> evidence + deterministic outcome
+        -> WhatsApp-style `hubspot_note`
+        -> HubSpot NOTE create (only write)
+```
+
+Intake note ids (plus the newest supplemental id) are persisted as a fingerprint for idempotency. A later supplemental CaseClosedFL note creates a new fingerprint, reruns validation, and writes a new outcome note. If a validation NOTE already exists for the same `validation_id` or intake fingerprint, the bridge does not write a duplicate.
+
+Missing required Lead fields (`state`, `case_type`) produce `INCOMPLETE` / `MISSING_INFORMATION` instead of guessed values. State is taken from the contact, an explicit note field, or a supported-state ZIP prefix. Narrative is stored in metadata only and is not treated as incident location or official evidence.
+
+### Forms (optional)
 
 ```text
 HubSpot initial form (read-only) ─┐
@@ -31,14 +58,25 @@ If the supplemental form arrives after the initial form, a later sync reruns val
 
 ## Required configuration
 
+Production (CRM notes; no marketing forms):
+
 ```text
 HUBSPOT_SYNC_ENABLED=true
 HUBSPOT_ACCESS_TOKEN=<runtime secret>
+# HUBSPOT_SYNC_MODE=auto   # default; crm_notes when form GUIDs are empty
+```
+
+The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode.
+
+Optional forms mode:
+
+```text
+HUBSPOT_SYNC_ENABLED=true
+HUBSPOT_ACCESS_TOKEN=<runtime secret>
+HUBSPOT_SYNC_MODE=forms
 HUBSPOT_INITIAL_FORM_GUID=<guid>
 HUBSPOT_EMAIL_FORM_GUID=<guid>
 ```
-
-The HubSpot credential should be provisioned with the minimum scopes needed to read forms/submissions, read contacts for email resolution, and create notes. Do not grant broad CRM write scopes if avoidable.
 
 Discover forms from the standalone runtime:
 
@@ -52,7 +90,7 @@ Run one sync manually:
 npm run hubspot:sync
 ```
 
-Or invoke the admin-only service endpoint:
+Or invoke the admin-only service endpoint (both modes):
 
 ```text
 POST /admin/hubspot/sync
@@ -61,4 +99,4 @@ x-admin-secret: ...
 
 ## Failure behavior
 
-The bridge fails closed. It does not guess form identity, create contacts, update contacts, pick a contact when more than one email match exists, or attach a note when email correlation is unavailable. Validation can still run through the normal `/v1/validations` API independently of HubSpot.
+The bridge fails closed. It does not invent case type or state, create contacts, update contacts, pick a contact when more than one association exists, or attach a note when the intake contact cannot be resolved. Validation can still run through the normal `/v1/validations` API independently of HubSpot.

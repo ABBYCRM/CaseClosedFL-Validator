@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {uniqueHubSpotContactId} from "../src/integrations/hubspot/client.js";
-import {PENDING_EMAILS_SQL,resolveFormId} from "../src/integrations/hubspot/worker.js";
+import {discoverCrmIntakes,PENDING_EMAILS_SQL,resolveFormId} from "../src/integrations/hubspot/worker.js";
 
 describe("HubSpot contact lookup",()=>{
   it("returns the only matching contact",()=>{
@@ -38,5 +38,26 @@ describe("HubSpot pending queue",()=>{
     expect(PENDING_EMAILS_SQL).toMatch(/EXISTS/);
     expect(PENDING_EMAILS_SQL).toMatch(/i\.form_guid=\$1/);
     expect(PENDING_EMAILS_SQL).toMatch(/s\.form_guid IN \(\$1,\$2\)/);
+  });
+});
+
+describe("HubSpot CRM note discovery",()=>{
+  it("keeps intake notes that resolve to exactly one contact",async()=>{
+    const byContact=await discoverCrmIntakes(
+      [
+        {id:"n1",body:"CaseClosedFL Qualified Personal Injury Intake\nCase type: Car accident",timestampMs:1},
+        {id:"n2",body:"⚠️ *CaseClosedFL Validation*\nValidation ID: x",timestampMs:2}
+      ],
+      new Map([["n1",["451"]],["n2",["451"]]])
+    );
+    expect([...byContact.keys()]).toEqual(["451"]);
+    expect(byContact.get("451")).toEqual(["n1"]);
+  });
+  it("fails closed when a note is associated to more than one contact",async()=>{
+    const byContact=await discoverCrmIntakes(
+      [{id:"n1",body:"CaseClosedFL Qualified Personal Injury Intake\nCase type: Car accident",timestampMs:1}],
+      new Map([["n1",["451","452"]]])
+    );
+    expect(byContact.size).toBe(0);
   });
 });
