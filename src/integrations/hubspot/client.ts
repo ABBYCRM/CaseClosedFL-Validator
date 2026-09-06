@@ -36,9 +36,15 @@ export async function getFormSubmissions(formGuid:string,after?:string){
   return {results:(j.results??[]) as HubSpotSubmission[],after:j.paging?.next?.after as string|undefined};
 }
 
+export function uniqueHubSpotContactId(search: {results?: Array<{id?: string}>}): string | null {
+  const results = Array.isArray(search.results) ? search.results.filter((row) => row?.id) : [];
+  if (results.length !== 1) return null;
+  return String(results[0]!.id);
+}
+
 export async function findContactByEmail(email:string):Promise<string|null>{
   const j:any=await hs(`/crm/v3/objects/contacts/search`,{method:"POST",body:JSON.stringify({filterGroups:[{filters:[{propertyName:"email",operator:"EQ",value:email}]}],properties:["email"],limit:2})});
-  return j.total===1?String(j.results[0].id):j.results?.[0]?.id?String(j.results[0].id):null;
+  return uniqueHubSpotContactId(j);
 }
 
 async function noteToContactAssociationType():Promise<number>{
