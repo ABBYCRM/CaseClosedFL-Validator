@@ -87,6 +87,17 @@ export const env={
   HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,
   HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID
 };
+export function hubspotAllowlistConfigured(cfg:{
+  HUBSPOT_INITIAL_FORM_ID?:string;
+  HUBSPOT_EMAIL_FORM_ID?:string;
+  HUBSPOT_INITIAL_FORM_NAME?:string;
+  HUBSPOT_EMAIL_FORM_NAME?:string;
+}){
+  const initial=!!cfg.HUBSPOT_INITIAL_FORM_ID||!!cfg.HUBSPOT_INITIAL_FORM_NAME;
+  const supplemental=!!cfg.HUBSPOT_EMAIL_FORM_ID||!!cfg.HUBSPOT_EMAIL_FORM_NAME;
+  return initial&&supplemental;
+}
+
 export function assertProductionSafety(){
   if(env.NODE_ENV!=="production")return;
   if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");
@@ -94,8 +105,6 @@ export function assertProductionSafety(){
   if(env.MODEL_PROVIDER==="nvidia"&&!env.NVIDIA_API_KEY)throw new Error("NVIDIA_API_KEY_REQUIRED");
   if(env.HUBSPOT_SYNC_ENABLED){
     if(!env.HUBSPOT_ACCESS_TOKEN)throw new Error("HUBSPOT_ACCESS_TOKEN_REQUIRED");
-    const idsConfigured=!!env.HUBSPOT_INITIAL_FORM_ID&&!!env.HUBSPOT_EMAIL_FORM_ID;
-    const namesConfigured=!!env.HUBSPOT_INITIAL_FORM_NAME&&!!env.HUBSPOT_EMAIL_FORM_NAME;
-    if(!idsConfigured&&!namesConfigured)throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
+    if(!hubspotAllowlistConfigured(env))throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
   }
 }

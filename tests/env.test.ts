@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {applyDotEnv} from "../src/config/env.js";
+import {applyDotEnv,hubspotAllowlistConfigured} from "../src/config/env.js";
 
 describe("local .env loader",()=>{
   it("fills missing keys without overriding the process environment",()=>{
@@ -12,5 +12,19 @@ describe("local .env loader",()=>{
   it("ignores comments and blank lines",()=>{
     const parsed=applyDotEnv("# comment\n\nNVIDIA_API_KEY=abc\n");
     expect(parsed.NVIDIA_API_KEY).toBe("abc");
+  });
+});
+
+describe("HubSpot production allowlist",()=>{
+  it("accepts mixed GUID and name configuration",()=>{
+    expect(hubspotAllowlistConfigured({
+      HUBSPOT_INITIAL_FORM_ID:"guid-initial",
+      HUBSPOT_EMAIL_FORM_NAME:"Email Followup"
+    })).toBe(true);
+  });
+  it("rejects a missing side of the two-form allowlist",()=>{
+    expect(hubspotAllowlistConfigured({
+      HUBSPOT_INITIAL_FORM_ID:"guid-initial"
+    })).toBe(false);
   });
 });
