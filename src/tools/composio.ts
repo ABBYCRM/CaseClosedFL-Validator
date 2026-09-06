@@ -18,23 +18,40 @@ export function sessionCreateBody(userId:string,toolkits:string[]){
   return payload;
 }
 
+function unwrapPayload(payload:any){
+  const data=payload?.data;
+  if(data&&typeof data==="object"&&!Array.isArray(data)) return {...payload,...data};
+  return payload??{};
+}
+
+function collectSlugs(value:unknown,into:string[],seen:Set<string>){
+  if(typeof value==="string"&&value&&!seen.has(value)){
+    seen.add(value);
+    into.push(value);
+    return;
+  }
+  if(!Array.isArray(value)) return;
+  for(const item of value){
+    if(typeof item==="string") collectSlugs(item,into,seen);
+    else if(item&&typeof item==="object") collectSlugs(item.slug??item.tool_slug??item.name,into,seen);
+  }
+}
+
 export function extractSearchTools(payload:any):ComposioTool[]{
-  const root=payload?.data&&typeof payload.data==="object"&&!Array.isArray(payload.data)?{...payload,...payload.data}:payload??{};
+  const root=unwrapPayload(payload);
   const schemas=root.tool_schemas&&typeof root.tool_schemas==="object"&&!Array.isArray(root.tool_schemas)?root.tool_schemas:undefined;
+  const slugs:string[]=[];
+  const seen=new Set<string>();
   const rows=Array.isArray(root.results)?root.results:[];
-  if(rows.length||schemas){
-    const slugs:string[]=[];
-    const seen=new Set<string>();
-    const push=(slug:unknown)=>{
-      if(typeof slug!=="string"||!slug||seen.has(slug)) return;
-      seen.add(slug);
-      slugs.push(slug);
-    };
-    for(const row of rows){
-      for(const slug of row?.primary_tool_slugs??[]) push(slug);
-      for(const slug of row?.related_tool_slugs??[]) push(slug);
-    }
-    if(!slugs.length&&schemas) for(const slug of Object.keys(schemas)) push(slug);
+  for(const row of rows){
+    collectSlugs(row?.primary_tool_slugs,slugs,seen);
+    collectSlugs(row?.related_tool_slugs,slugs,seen);
+  }
+  collectSlugs(root.primary_tool_slugs,slugs,seen);
+  collectSlugs(root.related_tool_slugs,slugs,seen);
+  collectSlugs(root.tool_slugs,slugs,seen);
+  if(!slugs.length&&schemas) collectSlugs(Object.keys(schemas),slugs,seen);
+  if(slugs.length){
     return slugs.map(slug=>{
       const schema=schemas?.[slug]??{};
       return{
@@ -47,13 +64,13 @@ export function extractSearchTools(payload:any):ComposioTool[]{
     }).filter(tool=>tool.slug);
   }
   const candidates=root.tools??root.items??(Array.isArray(root.data)?root.data:[]);
-  return Array.isArray(candidates)?candidates.map((x:any)=>({
+  return Array.isArray(candidates)?candidates.map((x:any)=>typeof x==="string"?{slug:x}:{
     slug:x.slug??x.tool_slug??x.name,
     name:x.name,
     description:x.description,
     input_schema:x.input_schema??x.inputSchema,
     toolkit:x.toolkit??x.toolkit_slug
-  })).filter((x:ComposioTool)=>x.slug):[];
+  }).filter((x:ComposioTool)=>x.slug):[];
 }
 
 function headers(apiKey:string){return {"x-api-key":apiKey,"Content-Type":"application/json"};}
@@ -87,13 +104,25 @@ export async function createSession(cfg:ComposioConfig=env,opts:ComposioCallOpti
 }
 
 export async function searchTools(sessionId:string,query:string,cfg:ComposioConfig=env,opts:ComposioCallOptions={}):Promise<ComposioTool[]>{
-  const j=await call(
-    `/api/v3.1/tool_router/session/${encodeURIComponent(sessionId)}/search`,
-    {method:"POST",body:JSON.stringify({queries:[{use_case:query}]})},
+  // Live v3.1: `{query}` on /search is 400 `payload.queries: Required`.
+  try{
+    const tools=extractSearchTools(await call(
+      `/api/v3.1/tool_router/session/${encodeURIComponent(sessionId)}/search`,
+      {method:"POST",body:JSON.stringify({queries:[{use_case:query}]})},
+      cfg,
+      opts
+    ));
+    if(tools.length) return tools;
+  }catch{
+    // Fall through to the live-verified execute_meta discovery path.
+  }
+  return extractSearchTools(await executeMeta(
+    sessionId,
+    "COMPOSIO_SEARCH_TOOLS",
+    {query,queries:[{use_case:query}]},
     cfg,
     opts
-  );
-  return extractSearchTools(j);
+  ));
 }
 
 export async function executeTool(sessionId:string,slug:string,args:Record<string,unknown>,cfg:ComposioConfig=env,opts:ComposioCallOptions={}){

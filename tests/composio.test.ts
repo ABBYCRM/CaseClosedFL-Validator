@@ -85,4 +85,45 @@ describe("Composio v3.1 search parsing",()=>{
       tools:[{slug:"TAVILY_SEARCH",toolkit:"tavily",description:"legacy"}]
     })).toEqual([{slug:"TAVILY_SEARCH",name:undefined,description:"legacy",input_schema:undefined,toolkit:"tavily"}]);
   });
+  it("extracts slugs from execute_meta data wrappers",()=>{
+    expect(extractSearchTools({
+      data:{
+        results:[{primary_tool_slugs:["FIRECRAWL_SEARCH","SERPAPI_SEARCH"],related_tool_slugs:[]}],
+        tool_schemas:{
+          FIRECRAWL_SEARCH:{toolkit:"firecrawl",tool_slug:"FIRECRAWL_SEARCH",description:"Search and scrape"},
+          SERPAPI_SEARCH:{toolkit:"serpapi",tool_slug:"SERPAPI_SEARCH"}
+        },
+        toolkit_connection_statuses:[{toolkit:"firecrawl",has_active_connection:false}]
+      },
+      error:null
+    }).map(t=>t.slug)).toEqual(["FIRECRAWL_SEARCH","SERPAPI_SEARCH"]);
+  });
+  it("falls back to execute_meta COMPOSIO_SEARCH_TOOLS when /search rejects query",async()=>{
+    const fetchMock=vi.fn(async(url:string,init?:RequestInit)=>{
+      const path=String(url);
+      const body=JSON.parse(String(init?.body??"{}"));
+      if(path.endsWith("/search")){
+        expect(body.query).toBeUndefined();
+        expect(body.queries).toEqual([{use_case:"web search tavily"}]);
+        return jsonResponse({error:{message:"payload.queries: Required"}},400);
+      }
+      expect(path.endsWith("/execute_meta")).toBe(true);
+      expect(body.slug).toBe("COMPOSIO_SEARCH_TOOLS");
+      expect(body.arguments.query).toBe("web search tavily");
+      expect(body.arguments.queries).toEqual([{use_case:"web search tavily"}]);
+      return jsonResponse({
+        data:{
+          results:[{primary_tool_slugs:["FIRECRAWL_SEARCH","SERPAPI_GOOGLE_SEARCH"],related_tool_slugs:[]}],
+          tool_schemas:{
+            FIRECRAWL_SEARCH:{toolkit:"firecrawl",tool_slug:"FIRECRAWL_SEARCH"},
+            SERPAPI_GOOGLE_SEARCH:{toolkit:"serpapi",tool_slug:"SERPAPI_GOOGLE_SEARCH"}
+          }
+        },
+        error:null
+      });
+    });
+    const tools=await searchTools("trs_test","web search tavily",cfg,{fetch:fetchMock as unknown as typeof fetch});
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(tools.map(t=>t.slug)).toEqual(["FIRECRAWL_SEARCH","SERPAPI_GOOGLE_SEARCH"]);
+  });
 });
