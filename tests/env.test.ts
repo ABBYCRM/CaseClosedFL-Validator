@@ -39,6 +39,10 @@ describe("optional direct-search env",()=>{
     expect(parseEnv({COMPOSIO_TOOLKITS:"tavily,exa,serpapi,scrapingbee,steel,firecrawl,scrapfly"}).COMPOSIO_TOOLKITS)
       .toEqual(["tavily","exa","serpapi","scrapingbee","steel","firecrawl","scrapfly"]);
   });
+  it("parses the recommended Composio toolkit allowlist",()=>{
+    expect(parseEnv({COMPOSIO_TOOLKITS:"tavily,exa,firecrawl,serpapi,browser_tool"}).COMPOSIO_TOOLKITS)
+      .toEqual(["tavily","exa","firecrawl","serpapi","browser_tool"]);
+  });
   it("trims blanks in the toolkit CSV",()=>{
     expect(parseEnv({COMPOSIO_TOOLKITS:"tavily, ,exa,,steel"}).COMPOSIO_TOOLKITS)
       .toEqual(["tavily","exa","steel"]);

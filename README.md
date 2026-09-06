@@ -58,7 +58,9 @@ Typical `INCOMPLETE` reasons include `MISSING_INFORMATION`, `RECORD_PENDING`, `S
 
 ## Tool corridor
 
-Composio is used through its v3.1 session/tool-router API. The validator searches for a narrow capability and may select read-only tools from toolkits such as Tavily, Exa, SerpAPI/DuckDuckGo, ScrapingBee, Steel, Firecrawl and Scrapfly.
+Composio is used through its v3.1 session/tool-router API with a project key (`ak_…`, never a Connect `ck_…` consumer key). Session create allowlists toolkits as `{ enable: [...] }`. The default corridor is Tavily, Exa, Firecrawl, SerpAPI, and Browser Tool (`browser_tool`). `steel` is not a Composio toolkit.
+
+Tool discovery uses `/search` with `{ queries: [{ use_case }] }` (a lone `{ query }` is rejected). If that path is empty or errors, the router falls back to `execute_meta` `COMPOSIO_SEARCH_TOOLS`. Toolkit execution still requires an active Composio connection for that toolkit (`has_active_connection`); session create succeeding with an `ak_` key does not by itself link Firecrawl/Tavily/etc.
 
 When the Composio key is missing, invalid, or the session/search/execute path fails, `runCapability` falls back to the same read-only capabilities through direct provider APIs that are present in the environment: Exa/Tavily for search, Firecrawl/ScrapingBee/Scrapfly for extract, and Steel then Firecrawl/ScrapingBee for browser/public-record lookup against the official jurisdiction URL. Direct executions are persisted as `direct:<provider>.<action>` rows. Incident/business/court/provider queries are biased to `site:<officialHost>` plus the `source.url` from `knowledge/jurisdictions`. AUTHORIZED sources still fail closed without lead authorization.
 

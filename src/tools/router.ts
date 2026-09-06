@@ -12,8 +12,8 @@ const denyWords=/(send|email|message|delete|remove|purchase|buy|create_contact|u
 const preference:Record<Capability,RegExp[]>={
   WEB_SEARCH:[/tavily/i,/exa/i,/serpapi|duckduckgo/i],
   WEB_EXTRACT:[/tavily/i,/exa/i,/firecrawl/i,/scrapingbee/i,/scrapfly/i],
-  JS_BROWSER:[/steel/i,/browser/i,/firecrawl/i],
-  PUBLIC_RECORD_LOOKUP:[/steel/i,/browser/i,/firecrawl/i,/tavily/i,/exa/i],
+  JS_BROWSER:[/browser_tool/i,/steel/i,/browser/i,/firecrawl/i],
+  PUBLIC_RECORD_LOOKUP:[/browser_tool/i,/steel/i,/browser/i,/firecrawl/i,/tavily/i,/exa/i],
   BUSINESS_SEARCH:[/tavily/i,/exa/i,/serpapi/i,/firecrawl/i,/browser/i],
   COURT_SEARCH:[/tavily/i,/exa/i,/firecrawl/i,/browser/i],
   PROVIDER_SEARCH:[/tavily/i,/exa/i,/firecrawl/i,/browser/i]
