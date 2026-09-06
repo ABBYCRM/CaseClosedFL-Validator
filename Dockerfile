@@ -16,4 +16,4 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/migrations ./migrations
 EXPOSE 8080
 USER node
-CMD ["node","dist/src/server.js"]
+CMD ["sh","-c","node dist/scripts/migrate.js && exec node dist/src/server.js"]

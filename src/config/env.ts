@@ -1,4 +1,34 @@
+import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
+
+export function applyDotEnv(text:string, existing:NodeJS.ProcessEnv=process.env):Record<string,string>{
+  const out:Record<string,string>={};
+  for(const [key,value] of Object.entries(existing)){
+    if(value!==undefined) out[key]=value;
+  }
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.trim();
+    if(!line||line.startsWith("#")) continue;
+    const eq=line.indexOf("=");
+    if(eq<=0) continue;
+    const key=line.slice(0,eq).trim().replace(/^export\s+/,"");
+    let value=line.slice(eq+1).trim();
+    if((value.startsWith("\"")&&value.endsWith("\""))||(value.startsWith("'")&&value.endsWith("'"))) value=value.slice(1,-1);
+    if(out[key]===undefined) out[key]=value;
+  }
+  return out;
+}
+
+function loadLocalEnv(){
+  const path=".env";
+  if(!existsSync(path)) return;
+  const parsed=applyDotEnv(readFileSync(path,"utf8"), process.env);
+  for(const [key,value] of Object.entries(parsed)){
+    if(process.env[key]===undefined) process.env[key]=value;
+  }
+}
+loadLocalEnv();
+
 const bool=z.string().default("false").transform((v:string)=>v.toLowerCase()==="true");
 const csv=z.string().default("").transform((v:string)=>v.split(",").map((x:string)=>x.trim()).filter(Boolean));
 const Schema=z.object({
@@ -57,6 +87,17 @@ export const env={
   HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,
   HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID
 };
+export function hubspotAllowlistConfigured(cfg:{
+  HUBSPOT_INITIAL_FORM_ID?:string;
+  HUBSPOT_EMAIL_FORM_ID?:string;
+  HUBSPOT_INITIAL_FORM_NAME?:string;
+  HUBSPOT_EMAIL_FORM_NAME?:string;
+}){
+  const initial=!!cfg.HUBSPOT_INITIAL_FORM_ID||!!cfg.HUBSPOT_INITIAL_FORM_NAME;
+  const supplemental=!!cfg.HUBSPOT_EMAIL_FORM_ID||!!cfg.HUBSPOT_EMAIL_FORM_NAME;
+  return initial&&supplemental;
+}
+
 export function assertProductionSafety(){
   if(env.NODE_ENV!=="production")return;
   if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");
@@ -64,8 +105,6 @@ export function assertProductionSafety(){
   if(env.MODEL_PROVIDER==="nvidia"&&!env.NVIDIA_API_KEY)throw new Error("NVIDIA_API_KEY_REQUIRED");
   if(env.HUBSPOT_SYNC_ENABLED){
     if(!env.HUBSPOT_ACCESS_TOKEN)throw new Error("HUBSPOT_ACCESS_TOKEN_REQUIRED");
-    const idsConfigured=!!env.HUBSPOT_INITIAL_FORM_ID&&!!env.HUBSPOT_EMAIL_FORM_ID;
-    const namesConfigured=!!env.HUBSPOT_INITIAL_FORM_NAME&&!!env.HUBSPOT_EMAIL_FORM_NAME;
-    if(!idsConfigured&&!namesConfigured)throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
+    if(!hubspotAllowlistConfigured(env))throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
   }
 }

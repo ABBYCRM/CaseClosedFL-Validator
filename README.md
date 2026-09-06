@@ -1,6 +1,6 @@
 # CaseClosedFL-Validator
 
-Backend-only, code-first lead validation service for CaseClosedFL. It validates intake facts against configured evidence sources and returns a machine-readable result. It is intentionally isolated from HubSpot and other CRM write surfaces.
+Backend-only, code-first lead validation service for CaseClosedFL. It validates intake facts against configured evidence sources and returns a machine-readable result. CRM writes are limited to the optional standalone HubSpot NOTE bridge; all other HubSpot/CRM mutation stays out of scope.
 
 ## Non-negotiable contract
 
@@ -11,7 +11,7 @@ Backend-only, code-first lead validation service for CaseClosedFL. It validates 
 - A record not found is **not** labeled false or fraudulent.
 - A URL is not considered visited unless a tool/runtime retrieval actually succeeded.
 - A file is not considered present unless the request/runtime actually contains it.
-- The validator never writes to CRM and never contacts claimants, attorneys, insurers, providers, defendants, witnesses, or agencies.
+- The validator never contacts claimants, attorneys, insurers, providers, defendants, witnesses, or agencies. The only optional CRM write is the standalone HubSpot validation NOTE defined in `docs/HUBSPOT_BRIDGE.md`.
 - Scope is lead validation only. No settlement valuation, legal advice, or final legal-liability determination.
 
 ## Supported CaseClosedFL scope
@@ -185,6 +185,8 @@ Local PostgreSQL + pgvector:
 docker compose up -d db
 ```
 
+`docker compose up --build` also starts the API container after Postgres is healthy. That service uses hostname `db`; keep `localhost` in `.env` for host-side `npm` scripts. The container applies migrations before listening.
+
 Build/test:
 
 ```bash
@@ -213,8 +215,12 @@ NVIDIA_API_KEY
 Optional:
 
 ```text
+OPENAI_API_KEY
 STEEL_API_KEY
 OPENCLAW_TOKEN
+HUBSPOT_ACCESS_TOKEN
+HUBSPOT_INITIAL_FORM_GUID
+HUBSPOT_EMAIL_FORM_GUID
 ```
 
 Any credential previously exposed in a chat or log should be rotated before use.

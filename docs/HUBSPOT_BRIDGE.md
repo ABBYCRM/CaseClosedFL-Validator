@@ -20,14 +20,14 @@ HubSpot initial form (read-only) ─┐
                                   ├─> merge latest submission by email
 HubSpot email/supplemental form ──┘
         -> CaseClosedFL Lead schema
-        -> validator runtime
+        -> contact lookup by email (read-only; fail closed if not exactly one match)
+        -> validator runtime (skipped when a prior attempt already stored validation_id for this pair)
         -> evidence + deterministic outcome
         -> WhatsApp-style `hubspot_note`
-        -> contact lookup by email (read-only)
         -> HubSpot NOTE create (only write)
 ```
 
-If the supplemental form arrives after the initial form, a later sync reruns validation with the newest pair and creates a new outcome note. Submission conversion IDs are persisted for idempotency.
+If the supplemental form arrives after the initial form, a later sync reruns validation with the newest pair and creates a new outcome note. Submission conversion IDs are persisted for idempotency. Emails that only have the supplemental form wait without occupying the sync batch. Contact lookup and note write failures do not re-run validation for the same submission pair.
 
 ## Required configuration
 
@@ -61,4 +61,4 @@ x-admin-secret: ...
 
 ## Failure behavior
 
-The bridge fails closed. It does not guess form identity, create contacts, update contacts, or attach a note when email correlation is unavailable. Validation can still run through the normal `/v1/validations` API independently of HubSpot.
+The bridge fails closed. It does not guess form identity, create contacts, update contacts, pick a contact when more than one email match exists, or attach a note when email correlation is unavailable. Validation can still run through the normal `/v1/validations` API independently of HubSpot.
