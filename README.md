@@ -36,6 +36,7 @@ CaseClosedFL-Validator
     -> jurisdiction + case skill
     -> source registry / RAG
     -> bounded Composio discovery + execution
+    -> direct read-only provider fallbacks when Composio is down
     -> evidence ledger
     -> optional NVIDIA semantic extraction
     -> deterministic qualification
@@ -57,7 +58,9 @@ Typical `INCOMPLETE` reasons include `MISSING_INFORMATION`, `RECORD_PENDING`, `S
 
 ## Tool corridor
 
-Composio is used through its v3.1 session/tool-router API. The validator searches for a narrow capability and may select read-only tools from toolkits such as Tavily, Exa, SerpAPI/DuckDuckGo, ScrapingBee and Steel.
+Composio is used through its v3.1 session/tool-router API. The validator searches for a narrow capability and may select read-only tools from toolkits such as Tavily, Exa, SerpAPI/DuckDuckGo, ScrapingBee, Steel, Firecrawl and Scrapfly.
+
+When the Composio key is missing, invalid, or the session/search/execute path fails, `runCapability` falls back to the same read-only capabilities through direct provider APIs that are present in the environment: Exa/Tavily for search, Firecrawl/ScrapingBee/Scrapfly for extract, and Steel then Firecrawl/ScrapingBee for browser/public-record lookup against the official jurisdiction URL. Direct executions are persisted as `direct:<provider>.<action>` rows. Incident/business/court/provider queries are biased to `site:<officialHost>` plus the `source.url` from `knowledge/jurisdictions`. AUTHORIZED sources still fail closed without lead authorization.
 
 Allowed capabilities:
 
@@ -217,6 +220,13 @@ Optional:
 ```text
 OPENAI_API_KEY
 STEEL_API_KEY
+TAVILY_API_KEY
+EXA_API_KEY
+FIRECRAWL_API_KEY
+SCRAPINGBEE_API_KEY
+SCRAPFLY_API_KEY
+SCREENSHOTONE_ACCESS_KEY
+SCREENSHOTONE_SECRET_KEY
 OPENCLAW_TOKEN
 HUBSPOT_ACCESS_TOKEN
 HUBSPOT_INITIAL_FORM_GUID
