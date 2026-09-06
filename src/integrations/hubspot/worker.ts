@@ -222,15 +222,19 @@ async function syncCrmNotesOnce(){
   const intakeNotes=discovered.filter(n=>classifyNote(n.body)==="intake");
   const associations=await getNoteContactIds(intakeNotes.map(n=>n.id));
   const byContact=await discoverCrmIntakes(intakeNotes,associations);
-  const contactIds=[...byContact.keys()].slice(0,env.HUBSPOT_SYNC_BATCH_SIZE);
+  const contactIds=[...byContact.keys()];
   const contacts=await readContacts(contactIds);
   const results=[];
+  let worked=0;
   for(const contactId of contactIds){
+    if(worked>=env.HUBSPOT_SYNC_BATCH_SIZE)break;
     const contact=contacts.get(contactId);
-    if(!contact){results.push({contact_id:contactId,status:"CONTACT_NOT_FOUND"});continue;}
+    if(!contact){results.push({contact_id:contactId,status:"CONTACT_NOT_FOUND"});worked++;continue;}
     const noteIds=await getContactNoteIds(contactId);
     const contactNotes=await readNotes(noteIds);
-    results.push(await processCrmIntake(contact,contactNotes));
+    const result=await processCrmIntake(contact,contactNotes);
+    results.push(result);
+    if(result.status!=="ALREADY_PROCESSED"&&result.status!=="NO_INTAKE_NOTE"&&result.status!=="OUTCOME_NOTE_EXISTS")worked++;
   }
   await q(`INSERT INTO hubspot_bridge_state(form_guid,last_polled_at,last_success_at,last_error) VALUES($1,now(),now(),NULL)
     ON CONFLICT(form_guid) DO UPDATE SET last_polled_at=now(),last_success_at=now(),last_error=NULL`,[CRM_STATE_KEY]);
