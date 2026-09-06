@@ -1,11 +1,21 @@
-import { env } from "../../config/env.js";
+import { env, resolveHubSpotSyncMode } from "../../config/env.js";
 import { q } from "../../db/index.js";
 import { startValidation } from "../../agent/controller.js";
-import { createContactNote, findContactByEmail, getFormSubmissions, listForms, type HubSpotSubmission } from "./client.js";
+import { buildOutcome } from "../../validation/outcome.js";
+import {
+  createContactNote, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
+  listForms, readContacts, readNotes, searchNotesSince, type HubSpotCrmContact, type HubSpotCrmNote,
+  type HubSpotSubmission
+} from "./client.js";
 import { submissionEmail, toLead } from "./mapper.js";
+import {
+  classifyNote, findExistingOutcomeNote, newestSupplemental, notesToLead, outcomeNoteBody,
+  type HubSpotContactRecord, type HubSpotNoteRecord
+} from "./notes.js";
 
 type FormRole={initial:string;supplemental:string};
 type NamedForm={id:string;name:string;archived?:boolean};
+const CRM_STATE_KEY="crm_notes";
 
 export function resolveFormId(opts:{id?:string;name?:string;forms:NamedForm[];role:string}):string{
   if(opts.id)return opts.id;
@@ -94,19 +104,155 @@ async function processEmail(email:string,forms:FormRole){
   }
 }
 
-export async function syncHubSpotOnce(){
-  if(!env.HUBSPOT_SYNC_ENABLED)return{enabled:false};
+async function syncFormsOnce(){
   const forms=await resolveForms();
   const [initialCount,supplementalCount]=await Promise.all([ingest(forms.initial),ingest(forms.supplemental)]);
   const pending=await q<any>(PENDING_EMAILS_SQL,[forms.initial,forms.supplemental,env.HUBSPOT_SYNC_BATCH_SIZE]);
   const results=[];for(const row of pending)results.push(await processEmail(row.contact_email,forms));
-  return{enabled:true,forms,ingested:{initial:initialCount,supplemental:supplementalCount},processed:results};
+  return{forms,ingested:{initial:initialCount,supplemental:supplementalCount},processed:results};
+}
+
+function toNoteRecord(n:HubSpotCrmNote):HubSpotNoteRecord{return{id:n.id,body:n.body,timestampMs:n.timestampMs};}
+function toContactRecord(c:HubSpotCrmContact):HubSpotContactRecord{
+  return{id:c.id,email:c.email,firstName:c.firstName,lastName:c.lastName,phone:c.phone,state:c.state,zip:c.zip,city:c.city};
+}
+
+async function crmLookbackSince(){
+  const rows=await q<any>(`SELECT last_success_at FROM hubspot_bridge_state WHERE form_guid=$1`,[CRM_STATE_KEY]);
+  const floor=Date.now()-env.HUBSPOT_SYNC_LOOKBACK_DAYS*86_400_000;
+  const last=rows[0]?.last_success_at?new Date(rows[0].last_success_at).getTime()-3_600_000:floor;
+  return Math.max(last,floor);
+}
+
+export async function discoverCrmIntakes(notes:HubSpotCrmNote[],associations:Map<string,string[]>){
+  const byContact=new Map<string,string[]>();
+  for(const note of notes){
+    if(classifyNote(note.body)!=="intake")continue;
+    const contacts=associations.get(note.id)??[];
+    if(contacts.length!==1)continue;
+    const contactId=contacts[0]!;
+    const list=byContact.get(contactId)??[];
+    list.push(note.id);
+    byContact.set(contactId,list);
+  }
+  return byContact;
+}
+
+async function upsertCrmIntake(row:{
+  fingerprint:string;contactId:string;email?:string;intakeNoteId:string;supplementalNoteId?:string;
+  intakeTs:number;supplementalTs?:number;
+}){
+  await q(`INSERT INTO hubspot_crm_intakes(
+      fingerprint,contact_id,contact_email,intake_note_id,supplemental_note_id,intake_timestamp,supplemental_timestamp)
+    VALUES($1,$2,$3,$4,$5,to_timestamp($6/1000.0),CASE WHEN $7::bigint IS NULL THEN NULL ELSE to_timestamp($7/1000.0) END)
+    ON CONFLICT(fingerprint) DO UPDATE SET
+      contact_email=excluded.contact_email,
+      supplemental_note_id=excluded.supplemental_note_id,
+      supplemental_timestamp=excluded.supplemental_timestamp`,
+    [row.fingerprint,row.contactId,row.email??null,row.intakeNoteId,row.supplementalNoteId??null,row.intakeTs,row.supplementalTs??null]);
+}
+
+async function processCrmIntake(contact:HubSpotCrmContact,contactNotes:HubSpotCrmNote[]){
+  const classified=contactNotes.map(n=>({note:n,kind:classifyNote(n.body)}));
+  const intakes=classified.filter(x=>x.kind==="intake").map(x=>x.note).sort((a,b)=>b.timestampMs-a.timestampMs);
+  if(!intakes[0])return{contact_id:contact.id,status:"NO_INTAKE_NOTE"};
+  const intake=intakes[0];
+  const supplementals=classified.filter(x=>x.kind==="supplemental").map(x=>x.note);
+  const newest=newestSupplemental(supplementals.map(toNoteRecord));
+  const parsed=notesToLead({intake:toNoteRecord(intake),supplementals:supplementals.map(toNoteRecord),contact:toContactRecord(contact)});
+  const fingerprint=parsed.fingerprint;
+  await upsertCrmIntake({
+    fingerprint,contactId:contact.id,email:contact.email,intakeNoteId:intake.id,
+    supplementalNoteId:newest?.id,intakeTs:intake.timestampMs,supplementalTs:newest?.timestampMs
+  });
+  const already=await q<any>(`SELECT fingerprint,processed_at,validation_id,outcome_note_id FROM hubspot_crm_intakes WHERE fingerprint=$1`,[fingerprint]);
+  if(already[0]?.processed_at&&already[0]?.outcome_note_id)return{contact_id:contact.id,email:contact.email,status:"ALREADY_PROCESSED",fingerprint};
+  const existingNote=findExistingOutcomeNote(contactNotes.map(toNoteRecord),fingerprint,already[0]?.validation_id);
+  if(existingNote){
+    await q(`UPDATE hubspot_crm_intakes SET processed_at=now(),outcome_note_id=$2,last_error=NULL WHERE fingerprint=$1`,[fingerprint,existingNote]);
+    return{contact_id:contact.id,email:contact.email,status:"OUTCOME_NOTE_EXISTS",fingerprint,note_id:existingNote,validation_id:already[0]?.validation_id};
+  }
+  try{
+    let result:any;
+    if(already[0]?.validation_id){
+      const stored=await q<any>(`SELECT result FROM validation_results WHERE validation_id=$1`,[already[0].validation_id]);
+      if(stored[0]?.result)result={validation_id:already[0].validation_id,...stored[0].result};
+    }
+    if(!result){
+      if(parsed.ok){
+        result=await startValidation(parsed.lead);
+      }else{
+        result=buildOutcome({
+          status:"INCOMPLETE",
+          reason:"MISSING_INFORMATION",
+          missing:parsed.missing,
+          evidence:[],
+          dimensions:{incident:"UNKNOWN",fault:"UNKNOWN"},
+          nextAction:"REQUEST_MISSING_INTAKE_FIELDS"
+        });
+      }
+      if(result.validation_id){
+        await q(`UPDATE hubspot_crm_intakes SET validation_id=$2,last_error=NULL WHERE fingerprint=$1`,[fingerprint,result.validation_id]);
+      }
+    }
+    const noteBody=outcomeNoteBody(result.hubspot_note??result.human_note??result.agent_note?.text??result.agent_note?.summary??"",result.validation_id,fingerprint);
+    const duplicate=findExistingOutcomeNote(contactNotes.map(toNoteRecord),fingerprint,result.validation_id);
+    if(duplicate){
+      await q(`UPDATE hubspot_crm_intakes SET processed_at=now(),validation_id=COALESCE($2,validation_id),outcome_note_id=$3,last_error=NULL WHERE fingerprint=$1`,[fingerprint,result.validation_id??null,duplicate]);
+      return{contact_id:contact.id,email:contact.email,status:"OUTCOME_NOTE_EXISTS",fingerprint,note_id:duplicate,validation_id:result.validation_id};
+    }
+    const noteId=await createContactNote(contact.id,noteBody);
+    await q(`UPDATE hubspot_crm_intakes SET processed_at=now(),validation_id=COALESCE($2,validation_id),outcome_note_id=$3,last_error=NULL WHERE fingerprint=$1`,[fingerprint,result.validation_id??null,noteId]);
+    return{contact_id:contact.id,email:contact.email,status:"PROCESSED",fingerprint,validation_id:result.validation_id,note_id:noteId};
+  }catch(e:any){
+    const message=String(e?.message??"HUBSPOT_CRM_NOTE_PROCESSING_FAILED").slice(0,1000);
+    await q(`UPDATE hubspot_crm_intakes SET last_error=$2 WHERE fingerprint=$1 AND processed_at IS NULL`,[fingerprint,message]);
+    return{contact_id:contact.id,email:contact.email,status:"FAILED",fingerprint,error:message};
+  }
+}
+
+async function syncCrmNotesOnce(){
+  const since=await crmLookbackSince();
+  const discovered:HubSpotCrmNote[]=[];
+  let after:string|undefined; let pages=0;
+  do{
+    const page=await searchNotesSince(since,after); pages++; after=page.after;
+    discovered.push(...page.results);
+  }while(after&&pages<env.HUBSPOT_SYNC_LOOKBACK_PAGES);
+  const intakeNotes=discovered.filter(n=>classifyNote(n.body)==="intake");
+  const associations=await getNoteContactIds(intakeNotes.map(n=>n.id));
+  const byContact=await discoverCrmIntakes(intakeNotes,associations);
+  const contactIds=[...byContact.keys()].slice(0,env.HUBSPOT_SYNC_BATCH_SIZE);
+  const contacts=await readContacts(contactIds);
+  const results=[];
+  for(const contactId of contactIds){
+    const contact=contacts.get(contactId);
+    if(!contact){results.push({contact_id:contactId,status:"CONTACT_NOT_FOUND"});continue;}
+    const noteIds=await getContactNoteIds(contactId);
+    const contactNotes=await readNotes(noteIds);
+    results.push(await processCrmIntake(contact,contactNotes));
+  }
+  await q(`INSERT INTO hubspot_bridge_state(form_guid,last_polled_at,last_success_at,last_error) VALUES($1,now(),now(),NULL)
+    ON CONFLICT(form_guid) DO UPDATE SET last_polled_at=now(),last_success_at=now(),last_error=NULL`,[CRM_STATE_KEY]);
+  return{discovered:discovered.length,intakes:intakeNotes.length,processed:results};
+}
+
+export async function syncHubSpotOnce(){
+  if(!env.HUBSPOT_SYNC_ENABLED)return{enabled:false};
+  const mode=resolveHubSpotSyncMode(env);
+  if(mode==="forms")return{enabled:true,mode,...await syncFormsOnce()};
+  return{enabled:true,mode,...await syncCrmNotesOnce()};
 }
 
 export function startHubSpotWorker(log:(obj:unknown,msg?:string)=>void){
   if(!env.HUBSPOT_SYNC_ENABLED)return()=>{};
   let stopped=false,running=false;
-  const tick=async()=>{if(stopped||running)return;running=true;try{const r=await syncHubSpotOnce();log(r,"HubSpot form sync complete");}catch(e:any){log({error:e?.message??String(e)},"HubSpot form sync failed");}finally{running=false;}};
+  const tick=async()=>{
+    if(stopped||running)return;running=true;
+    try{const r=await syncHubSpotOnce();log(r,"mode"in r&&r.mode==="crm_notes"?"HubSpot CRM note sync complete":"HubSpot form sync complete");}
+    catch(e:any){log({error:e?.message??String(e)},"HubSpot sync failed");}
+    finally{running=false;}
+  };
   void tick(); const timer=setInterval(()=>void tick(),env.HUBSPOT_SYNC_INTERVAL_MS);timer.unref();
   return()=>{stopped=true;clearInterval(timer);};
 }

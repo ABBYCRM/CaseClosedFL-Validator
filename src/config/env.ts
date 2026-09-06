@@ -67,6 +67,7 @@ const Schema=z.object({
   OPENCLAW_TOKEN:z.string().default(""),
   HUBSPOT_SYNC_ENABLED:bool,
   HUBSPOT_ACCESS_TOKEN:z.string().default(""),
+  HUBSPOT_SYNC_MODE:z.enum(["auto","forms","crm_notes"]).default("auto"),
   HUBSPOT_INITIAL_FORM_GUID:z.string().default(""),
   HUBSPOT_EMAIL_FORM_GUID:z.string().default(""),
   HUBSPOT_INITIAL_FORM_ID:z.string().default(""),
@@ -75,6 +76,7 @@ const Schema=z.object({
   HUBSPOT_EMAIL_FORM_NAME:z.string().default(""),
   HUBSPOT_SYNC_INTERVAL_MS:z.coerce.number().int().min(60_000).default(300_000),
   HUBSPOT_SYNC_LOOKBACK_PAGES:z.coerce.number().int().min(1).max(20).default(4),
+  HUBSPOT_SYNC_LOOKBACK_DAYS:z.coerce.number().int().min(1).max(90).default(14),
   HUBSPOT_SYNC_BATCH_SIZE:z.coerce.number().int().min(1).max(100).default(20),
   MAX_MODEL_CALLS:z.coerce.number().int().positive().default(3),
   MAX_TOOL_CALLS:z.coerce.number().int().positive().default(18),
@@ -97,6 +99,9 @@ export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined
   };
 }
 export const env=parseEnv();
+export type HubSpotSyncMode="forms"|"crm_notes";
+export type HubSpotSyncModeSetting="auto"|"forms"|"crm_notes";
+
 export function hubspotAllowlistConfigured(cfg:{
   HUBSPOT_INITIAL_FORM_ID?:string;
   HUBSPOT_EMAIL_FORM_ID?:string;
@@ -108,13 +113,35 @@ export function hubspotAllowlistConfigured(cfg:{
   return initial&&supplemental;
 }
 
+export function resolveHubSpotSyncMode(cfg:{
+  HUBSPOT_SYNC_MODE?:HubSpotSyncModeSetting;
+  HUBSPOT_INITIAL_FORM_ID?:string;
+  HUBSPOT_EMAIL_FORM_ID?:string;
+  HUBSPOT_INITIAL_FORM_NAME?:string;
+  HUBSPOT_EMAIL_FORM_NAME?:string;
+}):HubSpotSyncMode{
+  if(cfg.HUBSPOT_SYNC_MODE==="forms"||cfg.HUBSPOT_SYNC_MODE==="crm_notes")return cfg.HUBSPOT_SYNC_MODE;
+  return hubspotAllowlistConfigured(cfg)?"forms":"crm_notes";
+}
+
+export function assertHubSpotProductionConfig(cfg:{
+  HUBSPOT_ACCESS_TOKEN?:string;
+  HUBSPOT_SYNC_MODE?:HubSpotSyncModeSetting;
+  HUBSPOT_INITIAL_FORM_ID?:string;
+  HUBSPOT_EMAIL_FORM_ID?:string;
+  HUBSPOT_INITIAL_FORM_NAME?:string;
+  HUBSPOT_EMAIL_FORM_NAME?:string;
+}){
+  if(!cfg.HUBSPOT_ACCESS_TOKEN)throw new Error("HUBSPOT_ACCESS_TOKEN_REQUIRED");
+  if(resolveHubSpotSyncMode(cfg)==="forms"&&!hubspotAllowlistConfigured(cfg)){
+    throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
+  }
+}
+
 export function assertProductionSafety(){
   if(env.NODE_ENV!=="production")return;
   if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");
   if(env.MODEL_PROVIDER==="openai"&&!env.OPENAI_API_KEY)throw new Error("OPENAI_API_KEY_REQUIRED");
   if(env.MODEL_PROVIDER==="nvidia"&&!env.NVIDIA_API_KEY)throw new Error("NVIDIA_API_KEY_REQUIRED");
-  if(env.HUBSPOT_SYNC_ENABLED){
-    if(!env.HUBSPOT_ACCESS_TOKEN)throw new Error("HUBSPOT_ACCESS_TOKEN_REQUIRED");
-    if(!hubspotAllowlistConfigured(env))throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");
-  }
+  if(env.HUBSPOT_SYNC_ENABLED)assertHubSpotProductionConfig(env);
 }
