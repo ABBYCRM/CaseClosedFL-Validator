@@ -1,20 +1,23 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 import {z} from "zod";
 import {env} from "../src/config/env.js";
-import {observeImageText,reasonJson,rerank} from "../src/model/bitdeer.js";
+import {embed,observeImageText,reasonJson,rerank} from "../src/model/bitdeer.js";
 
 const originalFetch=globalThis.fetch;
 const originalKey=env.BITDEER_API_KEY;
 const originalBase=env.BITDEER_BASE_URL;
+const originalEmbedDimensions=env.BITDEER_EMBED_DIMENSIONS;
 
 beforeEach(()=>{
   env.BITDEER_API_KEY="test-key";
   env.BITDEER_BASE_URL="https://api-inference.bitdeer.ai/v1";
+  env.BITDEER_EMBED_DIMENSIONS=3;
 });
 afterEach(()=>{
   globalThis.fetch=originalFetch;
   env.BITDEER_API_KEY=originalKey;
   env.BITDEER_BASE_URL=originalBase;
+  env.BITDEER_EMBED_DIMENSIONS=originalEmbedDimensions;
   vi.restoreAllMocks();
 });
 
@@ -43,6 +46,25 @@ describe("Bitdeer reasoning provider",()=>{
     globalThis.fetch=fetchMock as unknown as typeof fetch;
     const result=await reasonJson({findings:["x"]},z.object({verdict:z.string()}),"Forensic document integrity synthesis");
     expect(result.verdict).toBe("MANUAL_REVIEW");
+  });
+});
+
+describe("Bitdeer embeddings",()=>{
+  it("uses Nemotron 3 Embed and distinct query/passage prefixes",async()=>{
+    const fetchMock=vi.fn(async(url:string,init?:RequestInit)=>{
+      expect(String(url)).toBe("https://api-inference.bitdeer.ai/v1/embeddings");
+      const body=JSON.parse(String(init?.body??"{}"));
+      expect(body.model).toBe("nvidia/Nemotron-3-Embed-8B-BF16");
+      expect(body.input).toEqual(["query: crash report number"]);
+      return new Response(JSON.stringify({data:[{index:0,embedding:[0.1,0.2,0.3]}]}),{status:200,headers:{"content-type":"application/json"}});
+    });
+    globalThis.fetch=fetchMock as unknown as typeof fetch;
+    await expect(embed(["crash report number"],"query")).resolves.toEqual([[0.1,0.2,0.3]]);
+  });
+
+  it("rejects embeddings with the wrong vector dimension",async()=>{
+    globalThis.fetch=vi.fn(async()=>new Response(JSON.stringify({data:[{index:0,embedding:[0.1,0.2]}]}),{status:200,headers:{"content-type":"application/json"}})) as unknown as typeof fetch;
+    await expect(embed(["document"],"passage")).rejects.toThrow(/BITDEER_INVALID_EMBEDDING_RESPONSE/);
   });
 });
 
