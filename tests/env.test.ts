@@ -17,10 +17,12 @@ describe("optional direct-search env",()=>{
   it("does not require provider keys at boot",()=>{
     const parsed=parseEnv({ADMIN_SECRET:"development-admin-secret-change-me",TOKEN_PEPPER:"development-token-pepper-change-me"});
     expect(parsed.MODEL_PROVIDER).toBe("bitdeer");
-    expect(parsed.EMBEDDING_PROVIDER).toBe("none");
+    expect(parsed.EMBEDDING_PROVIDER).toBe("bitdeer");
     expect(parsed.BITDEER_API_KEY).toBe("");
     expect(parsed.BITDEER_REASONING_MODEL).toBe("zai-org/GLM-5");
     expect(parsed.BITDEER_FORENSIC_MODEL).toBe("mistralai/Mistral-Large-3-675B-Instruct-2512");
+    expect(parsed.BITDEER_EMBED_MODEL).toBe("nvidia/Nemotron-3-Embed-8B-BF16");
+    expect(parsed.BITDEER_EMBED_DIMENSIONS).toBe(4096);
     expect(parsed.BITDEER_RERANK_MODEL).toBe("BAAI/bge-reranker-v2-m3");
     expect(parsed.TAVILY_API_KEY).toBe("");expect(parsed.EXA_API_KEY).toBe("");expect(parsed.FIRECRAWL_API_KEY).toBe("");expect(parsed.SCRAPINGBEE_API_KEY).toBe("");expect(parsed.SCRAPFLY_API_KEY).toBe("");expect(parsed.SCREENSHOTONE_ACCESS_KEY).toBe("");expect(parsed.SCREENSHOTONE_SECRET_KEY).toBe("");expect(parsed.HUBSPOT_NOTE_MAX_SCREENSHOTS).toBe(3);expect(parsed.COMPOSIO_API_KEY).toBe("");expect(parsed.STEEL_API_KEY).toBe("");
   });
