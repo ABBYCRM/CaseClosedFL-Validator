@@ -26,6 +26,17 @@ describe("optional direct-search env",()=>{
     expect(parsed.BITDEER_RERANK_MODEL).toBe("BAAI/bge-reranker-v2-m3");
     expect(parsed.TAVILY_API_KEY).toBe("");expect(parsed.EXA_API_KEY).toBe("");expect(parsed.FIRECRAWL_API_KEY).toBe("");expect(parsed.SCRAPINGBEE_API_KEY).toBe("");expect(parsed.SCRAPFLY_API_KEY).toBe("");expect(parsed.SCREENSHOTONE_ACCESS_KEY).toBe("");expect(parsed.SCREENSHOTONE_SECRET_KEY).toBe("");expect(parsed.HUBSPOT_NOTE_MAX_SCREENSHOTS).toBe(3);expect(parsed.COMPOSIO_API_KEY).toBe("");expect(parsed.STEEL_API_KEY).toBe("");
   });
+  it("aliases retired nvidia provider values to bitdeer",()=>{
+    const parsed=parseEnv({MODEL_PROVIDER:"nvidia",EMBEDDING_PROVIDER:"nvidia"});
+    expect(parsed.MODEL_PROVIDER).toBe("bitdeer");
+    expect(parsed.EMBEDDING_PROVIDER).toBe("bitdeer");
+  });
+  it("treats blank secret strings as unset so Zod defaults still apply",()=>{
+    const parsed=parseEnv({DATABASE_URL:"",ADMIN_SECRET:"",TOKEN_PEPPER:""});
+    expect(parsed.DATABASE_URL).toMatch(/^postgresql:\/\//);
+    expect(parsed.ADMIN_SECRET.length).toBeGreaterThanOrEqual(24);
+    expect(parsed.TOKEN_PEPPER.length).toBeGreaterThanOrEqual(24);
+  });
   it("keeps existing COMPOSIO_TOOLKITS CSV parsing",()=>{expect(parseEnv({COMPOSIO_TOOLKITS:"tavily,exa,serpapi,scrapingbee,steel"}).COMPOSIO_TOOLKITS).toEqual(["tavily","exa","serpapi","scrapingbee","steel"]);});
   it("accepts firecrawl and scrapfly in the toolkit CSV",()=>{expect(parseEnv({COMPOSIO_TOOLKITS:"tavily,exa,serpapi,scrapingbee,steel,firecrawl,scrapfly"}).COMPOSIO_TOOLKITS).toEqual(["tavily","exa","serpapi","scrapingbee","steel","firecrawl","scrapfly"]);});
   it("parses the recommended Composio toolkit allowlist",()=>{expect(parseEnv({COMPOSIO_TOOLKITS:"tavily,exa,firecrawl,serpapi,browser_tool"}).COMPOSIO_TOOLKITS).toEqual(["tavily","exa","firecrawl","serpapi","browser_tool"]);});

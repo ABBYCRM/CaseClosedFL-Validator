@@ -21,7 +21,8 @@ export async function retrieve(query:string,filters:{jurisdiction?:string;caseTy
     try{vector=(await embed([query],"query"))[0]??null;}catch{vector=null;}
   }
   if(vector){
-    return q<any>(`SELECT source_id,jurisdiction,case_type,dimension,url,authority_level,content,metadata,1-(embedding <=> $1::vector) AS score FROM knowledge_chunks WHERE embedding IS NOT NULL AND ($2::text IS NULL OR jurisdiction=$2) AND ($3::text IS NULL OR case_type=$3) AND ($4::text IS NULL OR dimension=$4) ORDER BY embedding <=> $1::vector LIMIT $5`,[vectorLiteral(vector),filters.jurisdiction??null,filters.caseType??null,filters.dimension??null,limit]);
+    const rows=await q<any>(`SELECT source_id,jurisdiction,case_type,dimension,url,authority_level,content,metadata,1-(embedding <=> $1::vector) AS score FROM knowledge_chunks WHERE embedding IS NOT NULL AND ($2::text IS NULL OR jurisdiction=$2) AND ($3::text IS NULL OR case_type=$3) AND ($4::text IS NULL OR dimension=$4) ORDER BY embedding <=> $1::vector LIMIT $5`,[vectorLiteral(vector),filters.jurisdiction??null,filters.caseType??null,filters.dimension??null,limit]);
+    if(rows.length) return rows;
   }
   const candidates=await q<any>(`SELECT source_id,jurisdiction,case_type,dimension,url,authority_level,content,metadata,0.0 AS score FROM knowledge_chunks WHERE ($1::text IS NULL OR jurisdiction=$1) AND ($2::text IS NULL OR case_type=$2) AND ($3::text IS NULL OR dimension=$3) ORDER BY id DESC LIMIT $4`,[filters.jurisdiction??null,filters.caseType??null,filters.dimension??null,Math.max(limit*8,32)]);
   if(env.MODEL_PROVIDER!=="bitdeer"||!env.BITDEER_API_KEY||candidates.length<2)return candidates.slice(0,limit);

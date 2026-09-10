@@ -71,13 +71,15 @@ Production defaults:
 
 ```text
 MODEL_PROVIDER=bitdeer
+EMBEDDING_PROVIDER=bitdeer
 BITDEER_REASONING_MODEL=zai-org/GLM-5
 BITDEER_FORENSIC_MODEL=mistralai/Mistral-Large-3-675B-Instruct-2512
+BITDEER_EMBED_MODEL=nvidia/Nemotron-3-Embed-8B-BF16
+BITDEER_EMBED_DIMENSIONS=4096
 BITDEER_RERANK_MODEL=BAAI/bge-reranker-v2-m3
-EMBEDDING_PROVIDER=none
 ```
 
-`GLM-5` handles lower-cost bounded JSON extraction and routine semantic checks. `Mistral-Large-3-675B-Instruct-2512` is selected for forensic/document-integrity tasks and larger evidence payloads. `BAAI/bge-reranker-v2-m3` reranks jurisdiction-filtered RAG candidates when vector embeddings are disabled.
+`GLM-5` handles lower-cost bounded JSON extraction and routine semantic checks. `Mistral-Large-3-675B-Instruct-2512` is selected for forensic/document-integrity tasks and larger evidence payloads. `nvidia/Nemotron-3-Embed-8B-BF16` writes 4096-dimensional pgvector embeddings. `BAAI/bge-reranker-v2-m3` reranks filtered RAG candidates when embeddings are missing or disabled.
 
 The Bitdeer endpoints configured for this release are text chat and rerank endpoints. They are **not treated as a vision service**. Screenshot capture continues, but OCR/vision fails soft with `BITDEER_VISION_MODEL_NOT_CONFIGURED` until a supported multimodal Bitdeer model is explicitly wired. The system never pretends a text-only model performed image forensics.
 
@@ -128,7 +130,7 @@ OpenClaw **does not own validation state or permissions**. Do not connect this v
 
 Version-controlled jurisdiction packs live in `knowledge/jurisdictions/`; case skills live in `knowledge/case-types/`. `npm run rag:ingest` writes source metadata and chunks to PostgreSQL.
 
-The default release sets `EMBEDDING_PROVIDER=none`. In that mode the runtime obtains jurisdiction/case/dimension-filtered candidates from PostgreSQL and, when Bitdeer is configured, reranks them with `BAAI/bge-reranker-v2-m3`. If reranking is unavailable, retrieval falls back to deterministic filtered recency order rather than pretending semantic ranking succeeded.
+The default release sets `EMBEDDING_PROVIDER=bitdeer`. In that mode the runtime embeds knowledge chunks and queries with Nemotron-3-Embed via Bitdeer (`vector(4096)`). If embedding calls fail or the index is empty, retrieval falls back to jurisdiction/case/dimension-filtered PostgreSQL candidates and, when Bitdeer is configured, reranks them with `BAAI/bge-reranker-v2-m3`. If reranking is also unavailable, retrieval uses deterministic filtered recency order rather than pretending semantic ranking succeeded.
 
 OpenAI embeddings remain an optional provider for installations that want pgvector retrieval. If embedding dimensions are changed, update the pgvector column migration accordingly.
 

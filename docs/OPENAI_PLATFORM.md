@@ -11,10 +11,10 @@ OPENAI_API_KEY=<runtime secret>
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_EMBED_MODEL=text-embedding-3-large
-OPENAI_EMBED_DIMENSIONS=2048
+OPENAI_EMBED_DIMENSIONS=4096
 ```
 
-The database migration uses `vector(2048)`, so the OpenAI embedding adapter explicitly requests 2048 dimensions. `text-embedding-3` models support a `dimensions` parameter.
+The database migration uses `vector(4096)`, so the OpenAI embedding adapter explicitly requests 4096 dimensions. `text-embedding-3` models support a `dimensions` parameter.
 
 ## Runtime behavior
 
@@ -24,8 +24,8 @@ The database migration uses `vector(2048)`, so the OpenAI embedding adapter expl
 - The model cannot execute Composio tools directly.
 - Model output never becomes evidence by itself.
 - The TypeScript runtime remains the state owner and final qualification engine.
-- The existing `MAX_MODEL_CALLS` hard budget applies equally to NVIDIA and OpenAI.
+- The existing `MAX_MODEL_CALLS` hard budget applies equally to Bitdeer and OpenAI.
 
-To switch back to NVIDIA, set `MODEL_PROVIDER=nvidia` and `EMBEDDING_PROVIDER=nvidia`.
+To switch back to Bitdeer, set `MODEL_PROVIDER=bitdeer` and `EMBEDDING_PROVIDER=bitdeer`.
 
 Never commit `OPENAI_API_KEY`; provide it with the deployment secret manager/runtime environment.

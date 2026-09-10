@@ -17,6 +17,16 @@ export function applyDotEnv(text:string, existing:NodeJS.ProcessEnv=process.env)
 function loadLocalEnv(){const path=".env";if(!existsSync(path)) return;const parsed=applyDotEnv(readFileSync(path,"utf8"),process.env);for(const [key,value] of Object.entries(parsed)){if(process.env[key]===undefined) process.env[key]=value;}}
 loadLocalEnv();
 
+function blankToUndef(source:NodeJS.ProcessEnv|Record<string,string|undefined>):Record<string,string|undefined>{
+  const out:Record<string,string|undefined>={};
+  for(const [key,value] of Object.entries(source)) out[key]=value===""?undefined:value;
+  return out;
+}
+function aliasRetiredProvider(value:unknown){
+  if(typeof value==="string"&&value.toLowerCase()==="nvidia") return "bitdeer";
+  return value;
+}
+
 const bool=z.string().default("false").transform((v:string)=>v.toLowerCase()==="true");
 const csv=z.string().default("").transform((v:string)=>v.split(",").map((x:string)=>x.trim()).filter(Boolean));
 const Schema=z.object({
@@ -25,8 +35,8 @@ const Schema=z.object({
   DATABASE_URL:z.string().min(1).default("postgresql://postgres:postgres@localhost:5432/caseclosed_validator"),
   ADMIN_SECRET:z.string().min(24).default("development-admin-secret-change-me"),
   TOKEN_PEPPER:z.string().min(24).default("development-token-pepper-change-me"),
-  MODEL_PROVIDER:z.enum(["bitdeer","openai"]).default("bitdeer"),
-  EMBEDDING_PROVIDER:z.enum(["bitdeer","openai","none"]).default("bitdeer"),
+  MODEL_PROVIDER:z.preprocess(aliasRetiredProvider,z.enum(["bitdeer","openai"]).default("bitdeer")),
+  EMBEDDING_PROVIDER:z.preprocess(aliasRetiredProvider,z.enum(["bitdeer","openai","none"]).default("bitdeer")),
   BITDEER_API_KEY:z.string().default(""),
   BITDEER_BASE_URL:z.string().url().default("https://api-inference.bitdeer.ai/v1"),
   BITDEER_REASONING_MODEL:z.string().default("zai-org/GLM-5"),
@@ -79,7 +89,7 @@ const Schema=z.object({
   KNOWLEDGE_VERSION:z.string().default("2026.09.10"),
   ENGINE_VERSION:z.string().default("1.4.1")
 });
-export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined>=process.env){const parsed=Schema.parse(source);return{...parsed,HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID};}
+export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined>=process.env){const parsed=Schema.parse(blankToUndef(source));return{...parsed,HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID};}
 export const env=parseEnv();
 export type HubSpotSyncMode="forms"|"crm_notes";export type HubSpotSyncModeSetting="auto"|"forms"|"crm_notes";
 export function hubspotAllowlistConfigured(cfg:{HUBSPOT_INITIAL_FORM_ID?:string;HUBSPOT_EMAIL_FORM_ID?:string;HUBSPOT_INITIAL_FORM_NAME?:string;HUBSPOT_EMAIL_FORM_NAME?:string;}){const initial=!!cfg.HUBSPOT_INITIAL_FORM_ID||!!cfg.HUBSPOT_INITIAL_FORM_NAME;const supplemental=!!cfg.HUBSPOT_EMAIL_FORM_ID||!!cfg.HUBSPOT_EMAIL_FORM_NAME;return initial&&supplemental;}
