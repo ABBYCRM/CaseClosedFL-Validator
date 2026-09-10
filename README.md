@@ -11,6 +11,8 @@ Backend-only, code-first lead validation service for CaseClosedFL. It validates 
 - A record not found is **not** labeled false or fraudulent.
 - A URL is not considered visited unless a tool/runtime retrieval actually succeeded.
 - A file is not considered present unless the request/runtime actually contains it.
+- Fraud engines produce independent risk verdicts; they do not independently accuse a claimant of fraud.
+- Synthetic-media, barcode, C2PA, morph, liveness, PDF, signature and image-forensic checks are only treated as performed when the corresponding specialized component supplied an observed result.
 - The validator never contacts claimants, attorneys, insurers, providers, defendants, witnesses, or agencies. The only optional CRM write is the standalone HubSpot validation NOTE defined in `docs/HUBSPOT_BRIDGE.md`.
 - Scope is lead validation only. No settlement valuation, legal advice, or final legal-liability determination.
 
@@ -42,6 +44,15 @@ CaseClosedFL-Validator
     -> evidence ledger
     -> optional NVIDIA semantic extraction
     -> deterministic qualification
+    -> parallel independent fraud verdict engines
+         -> DOCUMENT_AUTHENTICITY
+         -> DOCUMENT_TAMPERING
+         -> IDENTITY
+         -> SYNTHETIC_MEDIA
+         -> CLAIM_CONSISTENCY
+         -> CROSS_DOCUMENT
+         -> EXTERNAL_VERIFICATION
+    -> aggregate fraud review signal
     -> VALIDATED / INCOMPLETE / CONTRADICTED
         |
         v
@@ -50,11 +61,15 @@ DigitalOcean Managed PostgreSQL + pgvector
 
 **The TypeScript runtime is the agent.** NVIDIA/Nemotron is a constrained semantic helper used for document interpretation and ambiguity. It does not control state, execute tools, mark tool calls successful, or create evidence.
 
+The fraud layer is documented in `docs/FRAUD_VALIDATION_ENGINE.md`. Its seven engines execute independently in parallel and each returns its own verdict, risk score, assurance level, findings, performed checks and unavailable checks before aggregation.
+
 ## Result states
 
 - `VALIDATED`: configured verification threshold was met with evidence.
-- `INCOMPLETE`: missing fields, pending record, unavailable source, insufficient evidence, authorization requirement, or unresolved fault evidence.
-- `CONTRADICTED`: an explicit CaseClosedFL hard-stop or observed evidence conflicts with a required qualification condition. This is not automatically a fraud label.
+- `INCOMPLETE`: missing fields, pending record, unavailable source, insufficient evidence, authorization requirement, unresolved fault evidence, or other missing validation input.
+- `CONTRADICTED`: an explicit CaseClosedFL hard-stop, observed qualification conflict, or fraud-engine manual-review requirement conflicts with automatic validation. This is not automatically a fraud label.
+
+Fraud-engine dispositions are separate and available inside result `dimensions`: `PASS`, `PASS_WITH_WARNINGS`, `MANUAL_REVIEW`, `HIGH_RISK`, or `UNABLE_TO_VALIDATE`.
 
 Typical `INCOMPLETE` reasons include `MISSING_INFORMATION`, `RECORD_PENDING`, `SOURCE_UNAVAILABLE`, `AUTHORIZATION_REQUIRED`, `FAULT_NOT_ESTABLISHED`, `INSUFFICIENT_EVIDENCE`, and `NOT_CORROBORATED`.
 
@@ -163,6 +178,8 @@ The tiny admin UI is served at `/admin/` and does only token mint/list/revoke. P
 }
 ```
 
+For richer document fraud analysis, each document can additionally include `capture_type` and a `forensics` object produced by specialized parsers/detectors. See `docs/FRAUD_VALIDATION_ENGINE.md`.
+
 ### Example incomplete result
 
 ```json
@@ -213,51 +230,4 @@ npm run sources:check
 
 ## Secrets
 
-Never paste production credentials into source or commit them. Required production secrets are provided via environment/runtime secret management:
-
-```text
-DATABASE_URL
-ADMIN_SECRET
-TOKEN_PEPPER
-COMPOSIO_API_KEY
-NVIDIA_API_KEY
-```
-
-Optional:
-
-```text
-OPENAI_API_KEY
-STEEL_API_KEY
-TAVILY_API_KEY
-EXA_API_KEY
-FIRECRAWL_API_KEY
-SCRAPINGBEE_API_KEY
-SCRAPFLY_API_KEY
-SCREENSHOTONE_ACCESS_KEY
-SCREENSHOTONE_SECRET_KEY
-NVIDIA_VISION_MODEL
-OPENCLAW_TOKEN
-HUBSPOT_ACCESS_TOKEN
-HUBSPOT_INITIAL_FORM_GUID
-HUBSPOT_EMAIL_FORM_GUID
-```
-
-Any credential previously exposed in a chat or log should be rotated before use.
-
-## Government-source limitations
-
-Many crash-report systems restrict recent reports, require identity/authorization, use local-agency systems, or do not expose an API suitable for automated existence checks. The source packs describe these limitations. The service does not bypass them. When authoritative verification cannot be obtained, the correct output is `INCOMPLETE` with the exact missing evidence or authorization requirement.
-
-## What this service deliberately does not do
-
-- HubSpot writes other than the single validation NOTE defined by the standalone bridge
-- claimant communications
-- attorney communications
-- report purchases
-- form submissions that create/modify records
-- bypassing authentication/CAPTCHA/access restrictions
-- final legal-fault percentages
-- settlement estimates
-- generalized autonomous tasks
-
-See `docs/ARCHITECTURE.md`, `SECURITY.md`, `OPENCLAW_INTEGRATION.md`, `config/tool-policy.json`, and `docs/openapi.yaml`.
+Never paste production credentials into source or commit them. Required production secrets are provided via environment/runtime secret management.
