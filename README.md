@@ -37,12 +37,14 @@ CaseClosedFL-Validator
     -> deterministic intake rules
     -> jurisdiction + case skill
     -> source registry / RAG
+    -> Bitdeer BGE reranking for filtered knowledge candidates
     -> bounded Composio discovery + execution
     -> direct read-only provider fallbacks when Composio is down
     -> ScreenshotOne signed capture of official source URLs
-    -> optional NVIDIA vision OCR of those screenshots (observed text only)
     -> evidence ledger
-    -> optional NVIDIA semantic extraction
+    -> bounded Bitdeer semantic extraction
+         -> GLM-5 for routine structured extraction
+         -> Mistral Large 3 for heavier forensic/document reasoning
     -> deterministic qualification
     -> parallel independent fraud verdict engines
          -> DOCUMENT_AUTHENTICITY
@@ -59,9 +61,25 @@ CaseClosedFL-Validator
 DigitalOcean Managed PostgreSQL + pgvector
 ```
 
-**The TypeScript runtime is the agent.** NVIDIA/Nemotron is a constrained semantic helper used for document interpretation and ambiguity. It does not control state, execute tools, mark tool calls successful, or create evidence.
+**The TypeScript runtime is the agent.** Bitdeer models are constrained semantic helpers used for extraction, document interpretation, ambiguity resolution and retrieval ranking. They do not own state, execute tools, mark tool calls successful, create observed evidence, or make the final qualification decision.
 
-The fraud layer is documented in `docs/FRAUD_VALIDATION_ENGINE.md`. Its seven engines execute independently in parallel and each returns its own verdict, risk score, assurance level, findings, performed checks and unavailable checks before aggregation.
+The fraud layer is implemented in `src/validation/fraud/` and documented in `docs/FRAUD_VALIDATION_ENGINE.md`. Its seven engines execute independently in parallel and each returns its own verdict, risk score, assurance level, findings, performed checks and unavailable checks before aggregation.
+
+## Model routing
+
+Production defaults:
+
+```text
+MODEL_PROVIDER=bitdeer
+BITDEER_REASONING_MODEL=zai-org/GLM-5
+BITDEER_FORENSIC_MODEL=mistralai/Mistral-Large-3-675B-Instruct-2512
+BITDEER_RERANK_MODEL=BAAI/bge-reranker-v2-m3
+EMBEDDING_PROVIDER=none
+```
+
+`GLM-5` handles lower-cost bounded JSON extraction and routine semantic checks. `Mistral-Large-3-675B-Instruct-2512` is selected for forensic/document-integrity tasks and larger evidence payloads. `BAAI/bge-reranker-v2-m3` reranks jurisdiction-filtered RAG candidates when vector embeddings are disabled.
+
+The Bitdeer endpoints configured for this release are text chat and rerank endpoints. They are **not treated as a vision service**. Screenshot capture continues, but OCR/vision fails soft with `BITDEER_VISION_MODEL_NOT_CONFIGURED` until a supported multimodal Bitdeer model is explicitly wired. The system never pretends a text-only model performed image forensics.
 
 ## Result states
 
@@ -81,7 +99,7 @@ Tool discovery uses `/search` with `{ queries: [{ use_case }] }` (a lone `{ quer
 
 When the Composio key is missing, invalid, or the session/search/execute path fails, `runCapability` falls back to the same read-only capabilities through direct provider APIs that are present in the environment: Exa/Tavily for search, Firecrawl/ScrapingBee/Scrapfly for extract, Steel then Firecrawl/ScrapingBee for browser/public-record lookup, and `direct:screenshotone.capture` last for WEB_EXTRACT / JS_BROWSER / PUBLIC_RECORD_LOOKUP when ScreenshotOne keys are present. Direct executions are persisted as `direct:<provider>.<action>` rows. Incident/business/court/provider queries are biased to `site:<officialHost>` plus the `source.url` from `knowledge/jurisdictions`. AUTHORIZED sources still fail closed without lead authorization.
 
-When an official source URL is checked, the runtime also captures that page with a **signed** ScreenshotOne request (HMAC-SHA256 of the canonical query string; `secret_key` is never sent as a parameter). NVIDIA vision (`NVIDIA_VISION_MODEL`, default `meta/llama-3.2-11b-vision-instruct`) OCRs the image. Extracted text is stored as `OFFICIAL_SOURCE_SCREENSHOT_OBSERVED` — text observed in the screenshot, not government-record truth. If vision is unavailable, capture still proceeds and OCR fails soft. Up to `HUBSPOT_NOTE_MAX_SCREENSHOTS` images are uploaded to HubSpot Files and attached on the validation NOTE (`hs_attachment_ids`). A files-scope error still writes the WhatsApp-style text note.
+When an official source URL is checked, the runtime captures that page with a **signed** ScreenshotOne request (HMAC-SHA256 of the canonical query string; `secret_key` is never sent as a parameter). Screenshot content remains observed evidence only. Until a supported Bitdeer multimodal model is configured, OCR is explicitly unavailable rather than being fabricated. Up to `HUBSPOT_NOTE_MAX_SCREENSHOTS` images can be uploaded to HubSpot Files and attached on the validation NOTE (`hs_attachment_ids`). A files-scope error still writes the WhatsApp-style text note.
 
 Allowed capabilities:
 
@@ -106,11 +124,13 @@ OpenClaw is integrated in two bounded ways:
 
 OpenClaw **does not own validation state or permissions**. Do not connect this validator to a general-purpose OpenClaw instance; Gateway HTTP auth is an operator-level trust boundary. Use a dedicated isolated instance if you enable note delivery.
 
-## RAG / vector knowledge
+## RAG / knowledge retrieval
 
-Version-controlled jurisdiction packs live in `knowledge/jurisdictions/`; case skills live in `knowledge/case-types/`. `npm run rag:ingest` writes source metadata and chunks to PostgreSQL. When NVIDIA embeddings are configured, chunks are embedded into pgvector. If embedding is unavailable, knowledge ingestion still works and retrieval falls back to metadata/lexical filtering rather than claiming vector retrieval succeeded.
+Version-controlled jurisdiction packs live in `knowledge/jurisdictions/`; case skills live in `knowledge/case-types/`. `npm run rag:ingest` writes source metadata and chunks to PostgreSQL.
 
-The default embedding profile is `nvidia/nemotron-3-embed-1b` at 2048 dimensions. If you change dimensions, update the pgvector column migration accordingly.
+The default release sets `EMBEDDING_PROVIDER=none`. In that mode the runtime obtains jurisdiction/case/dimension-filtered candidates from PostgreSQL and, when Bitdeer is configured, reranks them with `BAAI/bge-reranker-v2-m3`. If reranking is unavailable, retrieval falls back to deterministic filtered recency order rather than pretending semantic ranking succeeded.
+
+OpenAI embeddings remain an optional provider for installations that want pgvector retrieval. If embedding dimensions are changed, update the pgvector column migration accordingly.
 
 ## Database
 
