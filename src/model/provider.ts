@@ -1,10 +1,10 @@
 import type { z } from "zod";
 import { env } from "../config/env.js";
-import { reasonJson as bitdeerReasonJson, rerank as bitdeerRerank } from "./bitdeer.js";
+import { reasonJson as bitdeerReasonJson, rerank as bitdeerRerank, embed as bitdeerEmbed } from "./bitdeer.js";
 import { openaiReasonJson, openaiEmbed } from "./openai.js";
 
 export type ModelProvider="bitdeer"|"openai";
-export type EmbeddingProvider="openai"|"none";
+export type EmbeddingProvider="bitdeer"|"openai"|"none";
 
 export function activeModelProvider():ModelProvider{return env.MODEL_PROVIDER;}
 export function activeEmbeddingProvider():EmbeddingProvider{return env.EMBEDDING_PROVIDER;}
@@ -15,6 +15,7 @@ export async function reasonJson<T>(input:unknown,schema:z.ZodType<T>,task:strin
 }
 
 export async function embed(inputs:string[],inputType:"query"|"passage"="passage"):Promise<number[][]>{
+  if(env.EMBEDDING_PROVIDER==="bitdeer") return bitdeerEmbed(inputs,inputType);
   if(env.EMBEDDING_PROVIDER==="openai") return openaiEmbed(inputs,inputType);
   throw new Error("EMBEDDING_PROVIDER_DISABLED");
 }
