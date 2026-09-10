@@ -26,17 +26,19 @@ const Schema=z.object({
   ADMIN_SECRET:z.string().min(24).default("development-admin-secret-change-me"),
   TOKEN_PEPPER:z.string().min(24).default("development-token-pepper-change-me"),
   MODEL_PROVIDER:z.enum(["bitdeer","openai"]).default("bitdeer"),
-  EMBEDDING_PROVIDER:z.enum(["openai","none"]).default("none"),
+  EMBEDDING_PROVIDER:z.enum(["bitdeer","openai","none"]).default("bitdeer"),
   BITDEER_API_KEY:z.string().default(""),
   BITDEER_BASE_URL:z.string().url().default("https://api-inference.bitdeer.ai/v1"),
   BITDEER_REASONING_MODEL:z.string().default("zai-org/GLM-5"),
   BITDEER_FORENSIC_MODEL:z.string().default("mistralai/Mistral-Large-3-675B-Instruct-2512"),
+  BITDEER_EMBED_MODEL:z.string().default("nvidia/Nemotron-3-Embed-8B-BF16"),
+  BITDEER_EMBED_DIMENSIONS:z.coerce.number().int().positive().max(4096).default(4096),
   BITDEER_RERANK_MODEL:z.string().default("BAAI/bge-reranker-v2-m3"),
   OPENAI_API_KEY:z.string().default(""),
   OPENAI_BASE_URL:z.string().url().default("https://api.openai.com/v1"),
   OPENAI_MODEL:z.string().default("gpt-5.4-mini"),
   OPENAI_EMBED_MODEL:z.string().default("text-embedding-3-large"),
-  OPENAI_EMBED_DIMENSIONS:z.coerce.number().int().positive().default(2048),
+  OPENAI_EMBED_DIMENSIONS:z.coerce.number().int().positive().default(4096),
   COMPOSIO_API_KEY:z.string().default(""),
   COMPOSIO_BASE_URL:z.string().url().default("https://backend.composio.dev"),
   COMPOSIO_USER_ID:z.string().default("caseclosedfl-validator"),
@@ -75,7 +77,7 @@ const Schema=z.object({
   HTTP_TIMEOUT_MS:z.coerce.number().int().positive().default(12000),
   MAX_DOCUMENT_CHARS:z.coerce.number().int().positive().default(60000),
   KNOWLEDGE_VERSION:z.string().default("2026.09.10"),
-  ENGINE_VERSION:z.string().default("1.4.0")
+  ENGINE_VERSION:z.string().default("1.4.1")
 });
 export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined>=process.env){const parsed=Schema.parse(source);return{...parsed,HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID};}
 export const env=parseEnv();
@@ -83,4 +85,4 @@ export type HubSpotSyncMode="forms"|"crm_notes";export type HubSpotSyncModeSetti
 export function hubspotAllowlistConfigured(cfg:{HUBSPOT_INITIAL_FORM_ID?:string;HUBSPOT_EMAIL_FORM_ID?:string;HUBSPOT_INITIAL_FORM_NAME?:string;HUBSPOT_EMAIL_FORM_NAME?:string;}){const initial=!!cfg.HUBSPOT_INITIAL_FORM_ID||!!cfg.HUBSPOT_INITIAL_FORM_NAME;const supplemental=!!cfg.HUBSPOT_EMAIL_FORM_ID||!!cfg.HUBSPOT_EMAIL_FORM_NAME;return initial&&supplemental;}
 export function resolveHubSpotSyncMode(cfg:{HUBSPOT_SYNC_MODE?:HubSpotSyncModeSetting;HUBSPOT_INITIAL_FORM_ID?:string;HUBSPOT_EMAIL_FORM_ID?:string;HUBSPOT_INITIAL_FORM_NAME?:string;HUBSPOT_EMAIL_FORM_NAME?:string;}):HubSpotSyncMode{if(cfg.HUBSPOT_SYNC_MODE==="forms"||cfg.HUBSPOT_SYNC_MODE==="crm_notes")return cfg.HUBSPOT_SYNC_MODE;return hubspotAllowlistConfigured(cfg)?"forms":"crm_notes";}
 export function assertHubSpotProductionConfig(cfg:{HUBSPOT_ACCESS_TOKEN?:string;HUBSPOT_SYNC_MODE?:HubSpotSyncModeSetting;HUBSPOT_INITIAL_FORM_ID?:string;HUBSPOT_EMAIL_FORM_ID?:string;HUBSPOT_INITIAL_FORM_NAME?:string;HUBSPOT_EMAIL_FORM_NAME?:string;}){if(!cfg.HUBSPOT_ACCESS_TOKEN)throw new Error("HUBSPOT_ACCESS_TOKEN_REQUIRED");if(resolveHubSpotSyncMode(cfg)==="forms"&&!hubspotAllowlistConfigured(cfg))throw new Error("HUBSPOT_TWO_FORM_ALLOWLIST_REQUIRED");}
-export function assertProductionSafety(){if(env.NODE_ENV!=="production")return;if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");if(env.MODEL_PROVIDER==="openai"&&!env.OPENAI_API_KEY)throw new Error("OPENAI_API_KEY_REQUIRED");if(env.MODEL_PROVIDER==="bitdeer"&&!env.BITDEER_API_KEY)throw new Error("BITDEER_API_KEY_REQUIRED");if(env.HUBSPOT_SYNC_ENABLED)assertHubSpotProductionConfig(env);}
+export function assertProductionSafety(){if(env.NODE_ENV!=="production")return;if(env.ADMIN_SECRET.includes("development-")||env.TOKEN_PEPPER.includes("development-"))throw new Error("PRODUCTION_SECRETS_NOT_CONFIGURED");if(env.MODEL_PROVIDER==="openai"&&!env.OPENAI_API_KEY)throw new Error("OPENAI_API_KEY_REQUIRED");if((env.MODEL_PROVIDER==="bitdeer"||env.EMBEDDING_PROVIDER==="bitdeer")&&!env.BITDEER_API_KEY)throw new Error("BITDEER_API_KEY_REQUIRED");if(env.HUBSPOT_SYNC_ENABLED)assertHubSpotProductionConfig(env);}
