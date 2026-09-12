@@ -53,6 +53,16 @@ describe("HubSpot CRM note discovery",()=>{
     expect([...byContact.keys()]).toEqual(["451"]);
     expect(byContact.get("451")).toEqual(["n1"]);
   });
+  it("does not treat HTML validation notes as CRM intake",async()=>{
+    const byContact=await discoverCrmIntakes(
+      [
+        {id:"n1",body:"<p>CaseClosedFL Qualified Personal Injury Intake</p><p>Case type: Car accident</p>",timestampMs:1},
+        {id:"n2",body:"<p>⚠️ <strong>CaseClosedFL Validation</strong></p><p>Validation ID: x</p>",timestampMs:2}
+      ],
+      new Map([["n1",["451"]],["n2",["451"]]])
+    );
+    expect(byContact.get("451")).toEqual(["n1"]);
+  });
   it("fails closed when a note is associated to more than one contact",async()=>{
     const byContact=await discoverCrmIntakes(
       [{id:"n1",body:"CaseClosedFL Qualified Personal Injury Intake\nCase type: Car accident",timestampMs:1}],

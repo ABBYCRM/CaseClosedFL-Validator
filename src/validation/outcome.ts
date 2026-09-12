@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { env } from "../config/env.js";
+import { toHubSpotNoteHtml } from "../integrations/hubspot/notes.js";
 import type { FinalStatus, IncompleteReason } from "./schema.js";
 
 export interface OutcomeInput{
@@ -12,9 +13,72 @@ function statusIcon(status:FinalStatus){
   if(status==="CONTRADICTED") return "⛔";
   return "⚠️";
 }
+function isPlainObject(v:unknown):v is Record<string,unknown>{
+  return !!v && typeof v==="object" && !Array.isArray(v);
+}
 function pretty(v:unknown){
   if(v===null||v===undefined||v==="") return "Unknown";
-  return String(v).replaceAll("_"," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  if(typeof v==="number"||typeof v==="boolean"||typeof v==="bigint") return String(v);
+  if(typeof v!=="string") return "";
+  return v.replaceAll("_"," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+}
+function objectResult(v:unknown){
+  if(!isPlainObject(v)) return pretty(v);
+  if(v.verdict!==undefined) return pretty(v.verdict);
+  if(v.result!==undefined) return pretty(v.result);
+  return "";
+}
+function findingLine(v:unknown){
+  if(!isPlainObject(v)) return pretty(v);
+  const name=typeof v.engine==="string"?pretty(v.engine):typeof v.name==="string"?pretty(v.name):"";
+  const kind=typeof v.finding_type==="string"?pretty(v.finding_type):"";
+  const result=v.result!==undefined?pretty(v.result):v.verdict!==undefined?pretty(v.verdict):"";
+  if(name&&kind&&result) return `${name} — ${kind}: ${result}`;
+  if(name&&result) return `${name}: ${result}`;
+  if(kind&&result) return `${kind}: ${result}`;
+  if(typeof v.observation==="string"&&v.observation.trim()) return v.observation.trim();
+  const scalars=Object.entries(v).filter(([,val])=>val!==undefined&&val!==null&&typeof val!=="object");
+  if(scalars.length) return scalars.map(([k,val])=>`${pretty(k)}: ${pretty(val)}`).join("; ");
+  return "";
+}
+export function formatDimensionLines(key:string,value:unknown):string[]{
+  if(value===undefined) return [];
+  const label=pretty(key);
+  if(Array.isArray(value)){
+    if(!value.length) return [];
+    const children=value.map(findingLine).filter(Boolean).slice(0,12);
+    if(!children.length) return [];
+    return [`• ${label}:`,...children.map(line=>`  • ${line}`)];
+  }
+  if(isPlainObject(value)){
+    if(Array.isArray(value.verdicts)){
+      const header=`• ${label}: ${objectResult(value.aggregate) || pretty(value.aggregate) || "Unknown"}`;
+      const engines=value.verdicts.flatMap((row:unknown)=>isPlainObject(row)&&row.engine!==undefined?[`  • ${pretty(row.engine)}: ${objectResult(row)}`]:[]);
+      return [header,...engines];
+    }
+    const entries=Object.entries(value).filter(([,v])=>v!==undefined);
+    if(!entries.length) return [];
+    const engineLike=entries.every(([,v])=>isPlainObject(v)&&(v.verdict!==undefined||v.result!==undefined));
+    if(engineLike){
+      return [`• ${label}:`,...entries.map(([name,v])=>`  • ${pretty(name)}: ${objectResult(v)}`)];
+    }
+    const nested:string[]=[`• ${label}:`];
+    for(const [name,v] of entries){
+      if(Array.isArray(v)){
+        const children=v.map(findingLine).filter(Boolean).slice(0,8);
+        if(children.length) nested.push(...children.map(line=>`  • ${pretty(name)} — ${line}`));
+        continue;
+      }
+      if(isPlainObject(v)){
+        const line=findingLine(v)||objectResult(v);
+        if(line) nested.push(`  • ${pretty(name)}: ${line}`);
+        continue;
+      }
+      nested.push(`  • ${pretty(name)}: ${pretty(v)}`);
+    }
+    return nested.length>1?nested:[];
+  }
+  return [`• ${label}: ${pretty(value)}`];
 }
 function humanNote(i:OutcomeInput, verified:string[]){
   const lines:string[]=[];
@@ -25,7 +89,7 @@ function humanNote(i:OutcomeInput, verified:string[]){
   const dimensionEntries=Object.entries(i.dimensions).filter(([,v])=>v!==undefined);
   if(dimensionEntries.length){
     lines.push("📋 *Checks*");
-    for(const [k,v] of dimensionEntries) lines.push(`• ${pretty(k)}: ${pretty(v)}`);
+    for(const [k,v] of dimensionEntries) lines.push(...formatDimensionLines(k,v));
     lines.push("");
   }
 
@@ -64,7 +128,7 @@ export function buildOutcome(i:OutcomeInput){
     contradictions:i.contradictions??[], next_action:i.nextAction??null,
     evidence:i.evidence,
     human_note:note,
-    hubspot_note:note,
+    hubspot_note:toHubSpotNoteHtml(note),
     agent_note:{
       type:"VALIDATION_NOTE",
       format:"WHATSAPP_STYLE_TEXT",
