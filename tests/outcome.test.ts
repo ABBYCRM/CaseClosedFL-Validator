@@ -1,4 +1,5 @@
 import {describe,it,expect} from "vitest";
+import {htmlToText} from "../src/integrations/hubspot/notes.js";
 import {buildOutcome} from "../src/validation/outcome.js";
 
 describe("outcome",()=>{
@@ -13,7 +14,7 @@ describe("outcome",()=>{
     expect(buildOutcome(i).result_hash).toBe(buildOutcome(i).result_hash);
   });
 
-  it("always emits a phone-readable HubSpot note",()=>{
+  it("emits WhatsApp text for humans and HubSpot-safe HTML for hs_note_body",()=>{
     const x=buildOutcome({
       status:"INCOMPLETE",
       reason:"FAULT_NOT_ESTABLISHED",
@@ -22,11 +23,45 @@ describe("outcome",()=>{
       dimensions:{incident:"DOCUMENT_CORROBORATED",fault:"UNDETERMINED"},
       nextAction:"REQUEST_FAULT_SUPPORTING_POLICE_REPORT"
     });
-    expect(x.hubspot_note).toContain("⚠️ *CaseClosedFL Validation*");
-    expect(x.hubspot_note).toContain("📋 *Checks*");
-    expect(x.hubspot_note).toContain("❓ *Still needed*");
-    expect(x.hubspot_note).not.toContain("{\"");
+    expect(x.human_note).toContain("⚠️ *CaseClosedFL Validation*");
+    expect(x.human_note).toContain("📋 *Checks*");
+    expect(x.human_note).toContain("❓ *Still needed*");
+    expect(x.human_note).not.toContain("{\"");
+    expect(x.hubspot_note).toContain("<strong>CaseClosedFL Validation</strong>");
+    expect(x.hubspot_note).toContain("<strong>Checks</strong>");
+    expect(x.hubspot_note).toContain("<strong>Still needed</strong>");
+    expect(x.hubspot_note).toContain("<p>");
+    expect(x.hubspot_note).not.toContain("*CaseClosedFL Validation*");
+    expect(htmlToText(x.hubspot_note)).toContain("CaseClosedFL Validation");
+    expect(htmlToText(x.hubspot_note)).toContain("Police report or fault evidence");
     expect(x.agent_note.format).toBe("WHATSAPP_STYLE_TEXT");
-    expect(x.human_note).toBe(x.hubspot_note);
+    expect(x.agent_note.text).toBe(x.human_note);
+  });
+
+  it("formats nested fraud engines as name: result lines instead of [object Object]",()=>{
+    const x=buildOutcome({
+      status:"INCOMPLETE",
+      reason:"NOT_CORROBORATED",
+      missing:["report"],
+      evidence:[],
+      dimensions:{
+        incident:"UNKNOWN",
+        fraud_parallel_engines:{
+          DOCUMENT_AUTHENTICITY:{verdict:"PASS",risk_score:0,assurance_level:"LEVEL_1_VISUAL_CONSISTENCY_ONLY",summary:"ok"},
+          IDENTITY:{verdict:"HIGH_RISK",risk_score:45,assurance_level:"LEVEL_3_MACHINE_READABLE_CONSISTENCY",summary:"mismatch"}
+        },
+        fraud_findings:[
+          {engine:"IDENTITY",finding_type:"BARCODE_VISIBLE_DATA_MISMATCH",result:"FAIL",observation:"visible data conflicts"}
+        ]
+      }
+    });
+    expect(x.human_note).toMatch(/Fraud Parallel Engines:[\s\S]*Document Authenticity: Pass/);
+    expect(x.human_note).toContain("Identity: High Risk");
+    expect(x.human_note).toContain("Identity — Barcode Visible Data Mismatch: Fail");
+    expect(x.human_note).not.toMatch(/\[object Object\]/i);
+    expect(x.hubspot_note).not.toMatch(/\[object Object\]/i);
+    expect(x.hubspot_note).toContain("Document Authenticity: Pass");
+    expect(x.hubspot_note).toContain("<p>");
+    expect(htmlToText(x.hubspot_note)).toContain("Document Authenticity: Pass");
   });
 });

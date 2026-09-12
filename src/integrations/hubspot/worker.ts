@@ -92,7 +92,7 @@ async function processEmail(email:string,forms:FormRole){
       result=await startValidation(lead);
       await q(`UPDATE hubspot_form_submissions SET validation_id=$2,last_error=NULL WHERE lower(contact_email)=lower($1) AND form_guid IN ($3,$4) AND submitted_at<=to_timestamp($5/1000.0)`,[email,result.validation_id,forms.initial,forms.supplemental,latestMs]);
     }
-    const noteBody=`${result.hubspot_note??result.human_note??result.agent_note?.text??result.agent_note?.summary}\n\nValidation ID: ${result.validation_id}`;
+    const noteBody=outcomeNoteBody(result.hubspot_note??result.human_note??result.agent_note?.text??result.agent_note?.summary??"",result.validation_id);
     const written=await createContactNoteWithScreenshots(contactId,noteBody,result.validation_id);
     await q(`UPDATE hubspot_form_submissions SET processed_at=now(),validation_id=$2,note_id=$3,last_error=NULL
       WHERE lower(contact_email)=lower($1) AND form_guid IN ($4,$5) AND submitted_at<=to_timestamp($6/1000.0)`,[email,result.validation_id,written.noteId,forms.initial,forms.supplemental,latestMs]);

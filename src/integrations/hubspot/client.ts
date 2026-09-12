@@ -1,5 +1,6 @@
 import { env } from "../../config/env.js";
 import { listValidationScreenshots, type ValidationScreenshot } from "../../evidence/screenshots.js";
+import { toHubSpotNoteHtml } from "./notes.js";
 
 export interface HubSpotHttpOptions {
   fetch?:typeof fetch;
@@ -70,7 +71,7 @@ async function noteToContactAssociationType(opts?:HubSpotHttpOptions):Promise<nu
 }
 
 export function noteCreatePayload(contactId:string,body:string,associationTypeId:number,attachmentIds:string[]=[]){
-  const properties:Record<string,string>={hs_timestamp:new Date().toISOString(),hs_note_body:body};
+  const properties:Record<string,string>={hs_timestamp:new Date().toISOString(),hs_note_body:toHubSpotNoteHtml(body)};
   if(attachmentIds.length) properties.hs_attachment_ids=attachmentIds.join(";");
   return {
     properties,

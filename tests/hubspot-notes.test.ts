@@ -2,7 +2,7 @@ import {describe,it,expect} from "vitest";
 import {stateFromZip} from "../src/integrations/hubspot/fields.js";
 import {
   classifyNote, findExistingOutcomeNote, htmlToText, intakeFingerprint, notesToLead,
-  outcomeNoteBody, parseLabeledFields
+  outcomeNoteBody, parseLabeledFields, toHubSpotNoteHtml
 } from "../src/integrations/hubspot/notes.js";
 
 const LIVE_INTAKE=`CaseClosedFL Qualified Personal Injury Intake
@@ -35,6 +35,9 @@ describe("CRM note classification",()=>{
   });
   it("does not treat WhatsApp-style validation notes as intake",()=>{
     expect(classifyNote("⚠️ *CaseClosedFL Validation*\nStatus: *INCOMPLETE*\n\nValidation ID: abc")).toBe("validation");
+  });
+  it("does not treat HubSpot HTML validation notes as intake",()=>{
+    expect(classifyNote("<p>⚠️ <strong>CaseClosedFL Validation</strong></p><p>Status: <strong>INCOMPLETE</strong></p><p></p><p>Validation ID: abc</p>")).toBe("validation");
   });
   it("strips HubSpot HTML before classifying",()=>{
     expect(classifyNote("<p>CaseClosedFL Qualified Personal Injury Intake</p><p>Case type: Car accident</p>")).toBe("intake");
@@ -151,5 +154,47 @@ describe("outcome note idempotency",()=>{
   });
   it("keeps HTML note bodies searchable after unescape",()=>{
     expect(htmlToText("<p>Case type: Car accident</p>")).toContain("Case type: Car accident");
+  });
+  it("writes HubSpot-safe HTML with one field per line and escaped user text",()=>{
+    const fingerprint=intakeFingerprint("note_intake");
+    const body=outcomeNoteBody("⚠️ *CaseClosedFL Validation*\nStatus: *INCOMPLETE*\n\n📋 *Checks*\n• Fraud Parallel Engines:\n  • Identity: High Risk\n\n_Only observed evidence is treated as verified._", "val-1", fingerprint);
+    expect(body).toContain("<p>");
+    expect(body).toContain("<strong>CaseClosedFL Validation</strong>");
+    expect(body).toContain("<strong>INCOMPLETE</strong>");
+    expect(body).toContain("<strong>Checks</strong>");
+    expect(body).toContain("Identity: High Risk");
+    expect(body).toContain(`<p>Validation ID: val-1</p>`);
+    expect(body).toContain(`<p>Intake fingerprint: ${fingerprint}</p>`);
+    expect(body).not.toMatch(/\[object Object\]/i);
+    const text=htmlToText(body);
+    expect(text).toContain("CaseClosedFL Validation");
+    expect(text).toContain("Validation ID: val-1");
+    expect(text).toContain(`Intake fingerprint: ${fingerprint}`);
+    expect(classifyNote(body)).toBe("validation");
+  });
+  it("escapes user-supplied HTML before writing hs_note_body",()=>{
+    const html=toHubSpotNoteHtml("❓ *Still needed*\n• <script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).not.toContain("<script>");
+    expect(htmlToText(html)).toContain("<script>alert(1)</script>");
+  });
+  it("does not double-escape an already HubSpot-safe note",()=>{
+    const html=toHubSpotNoteHtml("⚠️ *CaseClosedFL Validation*\nStatus: *INCOMPLETE*");
+    expect(toHubSpotNoteHtml(html)).toBe(html);
+    const withMeta=outcomeNoteBody(html,"val-9","fp-9");
+    expect(withMeta).toContain("<strong>CaseClosedFL Validation</strong>");
+    expect(withMeta).not.toContain("&lt;strong&gt;");
+    expect(htmlToText(withMeta)).toContain("Validation ID: val-9");
+  });
+  it("still parses intake fields from the new HubSpot HTML",()=>{
+    const html=toHubSpotNoteHtml(LIVE_INTAKE);
+    expect(html).toContain("<p>");
+    expect(htmlToText(html)).toContain("Case type: Car accident");
+    const parsed=notesToLead({intake:{id:"note_html",body:html,timestampMs:1},contact});
+    expect(parsed.ok).toBe(true);
+    if(!parsed.ok)return;
+    expect(parsed.lead.case_type).toBe("AUTO_ACCIDENT");
+    expect(parsed.lead.incident.date).toBe("2026-08-10");
+    expect((parsed.lead.metadata as any).hubspot.narrative).toContain("red light");
   });
 });

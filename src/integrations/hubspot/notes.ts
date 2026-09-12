@@ -31,6 +31,31 @@ const VALIDATION_MARK=/caseclosedfl validation|validation id\s*:/i;
 const SUPPLEMENTAL_HINT=/caseclosedfl/i;
 const SECTION_HEADERS=new Set(["incident_narrative","incident_narratives","narrative","additional_details","additional_notes","notes"]);
 
+const HUBSPOT_HTML_MARK=/<(?:p|br|strong|div|em|span)\b/i;
+
+export function escapeHubSpotHtml(raw:string){
+  return String(raw??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+export function isHubSpotNoteHtml(raw:string){
+  return HUBSPOT_HTML_MARK.test(String(raw??""));
+}
+
+export function toHubSpotNoteHtml(raw:string){
+  const text=String(raw??"").replace(/\r\n/g,"\n");
+  if(isHubSpotNoteHtml(text)) return text.trim();
+  return text.split("\n").map(line=>{
+    const leading=line.match(/^[ \t]+/)?.[0]??"";
+    const indent="&nbsp;".repeat(leading.replace(/\t/g,"  ").length);
+    const bolded=escapeHubSpotHtml(line.slice(leading.length)).replace(/\*([^*]+)\*/g,"<strong>$1</strong>");
+    return `<p>${indent}${bolded}</p>`;
+  }).join("");
+}
+
 export function htmlToText(raw:string){
   return String(raw??"")
     .replace(/\r\n/g,"\n")
@@ -199,9 +224,14 @@ export function findExistingOutcomeNote(notes:HubSpotNoteRecord[],fingerprint:st
   return undefined;
 }
 
-export function outcomeNoteBody(hubspotNote:string,validationId:string|undefined,fingerprint:string){
-  const lines=[hubspotNote.trim(),""];
-  if(validationId)lines.push(`Validation ID: ${validationId}`);
-  lines.push(`Intake fingerprint: ${fingerprint}`);
-  return lines.join("\n");
+export function outcomeNoteBody(hubspotNote:string,validationId:string|undefined,fingerprint?:string){
+  const base=String(hubspotNote??"").replace(/\r\n/g,"\n").trim();
+  const meta:string[]=[];
+  if(validationId) meta.push(`Validation ID: ${validationId}`);
+  if(fingerprint) meta.push(`Intake fingerprint: ${fingerprint}`);
+  if(!meta.length) return toHubSpotNoteHtml(base);
+  if(isHubSpotNoteHtml(base)){
+    return `${toHubSpotNoteHtml(base)}<p></p>${meta.map(line=>`<p>${escapeHubSpotHtml(line)}</p>`).join("")}`;
+  }
+  return toHubSpotNoteHtml([base,"",...meta].join("\n"));
 }

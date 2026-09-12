@@ -21,7 +21,8 @@ const shot={
 describe("HubSpot note attachments",()=>{
   it("joins attachment ids with semicolons like Abby-Hubspot",()=>{
     const payload=noteCreatePayload("451","⚠️ *CaseClosedFL Validation*",202,["file-1","file-2"]);
-    expect(payload.properties.hs_note_body).toContain("*CaseClosedFL Validation*");
+    expect(payload.properties.hs_note_body).toContain("<strong>CaseClosedFL Validation</strong>");
+    expect(payload.properties.hs_note_body).toContain("<p>");
     expect(payload.properties.hs_attachment_ids).toBe("file-1;file-2");
     expect(payload.associations[0]?.to.id).toBe("451");
     expect(privateFileUploadOptions().access).toBe("PRIVATE");
@@ -62,7 +63,7 @@ describe("HubSpot note attachments",()=>{
       if(String(url)==="https://api.hubapi.com/crm/v3/objects/notes"){
         const body=JSON.parse(String(init?.body??"{}"));
         expect(body.properties.hs_attachment_ids).toBeUndefined();
-        expect(body.properties.hs_note_body).toContain("*CaseClosedFL Validation*");
+        expect(body.properties.hs_note_body).toContain("<strong>CaseClosedFL Validation</strong>");
         return jsonResponse({id:"note-plain"});
       }
       throw new Error(`unexpected ${url}`);

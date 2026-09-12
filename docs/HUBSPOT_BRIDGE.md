@@ -4,7 +4,7 @@ Purpose: keep `CaseClosedFL-Validator` independently deployable while allowing i
 
 Production CaseClosedFL (Abby-HubSpot) upserts CRM contacts and writes structured intake NOTES. It does not use HubSpot marketing forms. The bridge therefore has two read paths and one write:
 
-- `crm_notes` (default when the two-form allowlist is not configured): read recent CaseClosedFL intake notes + optional supplemental notes, map to Lead, validate, write a WhatsApp-style outcome NOTE on the same contact.
+- `crm_notes` (default when the two-form allowlist is not configured): read recent CaseClosedFL intake notes + optional supplemental notes, map to Lead, validate, write a HubSpot-safe HTML outcome NOTE (WhatsApp-style layout) on the same contact.
 - `forms` (kept for deployments that still have form GUIDs): read the two allowlisted marketing forms, merge by email, validate, write a NOTE.
 
 ## Access boundary
@@ -13,7 +13,7 @@ The bridge is intentionally narrow:
 
 - READ (`crm_notes`): recent CRM notes and the associated contact properties (email, name, phone, state, ZIP)
 - READ (`forms`): exactly two allowlisted HubSpot form GUIDs (initial lead capture + supplemental/email form) and contact lookup by submitted email
-- WRITE: create a NOTE associated to that contact
+- WRITE: create a NOTE associated to that contact (`hs_note_body` is HubSpot-safe HTML)
 - DENY BY DESIGN: contact updates, deal updates, ticket updates, marketing email changes, form edits, lifecycle-stage changes, owner changes, messaging, and arbitrary CRM writes
 
 `HUBSPOT_SYNC_MODE=auto` (default) selects `forms` when the two-form allowlist is configured and `crm_notes` otherwise. Set `HUBSPOT_SYNC_MODE=forms` or `HUBSPOT_SYNC_MODE=crm_notes` to force a path.
@@ -32,7 +32,7 @@ HubSpot CRM notes (read-only)
         -> CaseClosedFL Lead schema (fail closed; never invent fields)
         -> validator runtime (skipped when this intake fingerprint already has validation_id)
         -> evidence + deterministic outcome
-        -> WhatsApp-style `hubspot_note`
+        -> HubSpot-safe HTML `hubspot_note` (WhatsApp-style layout: bold section headers, one field per line)
         -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
 
@@ -50,7 +50,7 @@ HubSpot email/supplemental form ──┘
         -> contact lookup by email (read-only; fail closed if not exactly one match)
         -> validator runtime (skipped when a prior attempt already stored validation_id for this pair)
         -> evidence + deterministic outcome
-        -> WhatsApp-style `hubspot_note`
+        -> HubSpot-safe HTML `hubspot_note` (WhatsApp-style layout: bold section headers, one field per line)
         -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
 
@@ -66,7 +66,7 @@ HUBSPOT_ACCESS_TOKEN=<runtime secret>
 # HUBSPOT_SYNC_MODE=auto   # default; crm_notes when form GUIDs are empty
 ```
 
-The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode. Attaching official-source screenshots also needs HubSpot Files upload. If upload fails (including a missing files scope), the WhatsApp-style text NOTE is still written and the upload error is recorded on the sync result.
+The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode. Attaching official-source screenshots also needs HubSpot Files upload. If upload fails (including a missing files scope), the HubSpot-safe HTML NOTE is still written and the upload error is recorded on the sync result.
 
 Optional forms mode:
 

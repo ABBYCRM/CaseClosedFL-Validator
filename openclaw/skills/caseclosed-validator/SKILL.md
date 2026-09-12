@@ -20,13 +20,15 @@ Use this skill only when a trusted upstream system supplies a completed `CaseClo
 
 The validator emits `hubspot_note`, `human_note`, and `agent_note.text`. Prefer those fields verbatim when sending a note downstream.
 
+`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects; fraud parallel engines and findings are `name: result` lines.
+
 Style must be easy to read on a phone, like a WhatsApp message:
 - short lines;
 - blank lines between sections;
 - simple bullets;
 - light emoji section markers;
 - no JSON dump;
-- no HTML required;
+- no `[object Object]`;
 - no internal chain-of-thought;
 - no long evidence payloads;
 - preserve exact validation status and uncertainty.
