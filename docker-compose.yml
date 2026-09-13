@@ -22,10 +22,12 @@ services:
       db:
         condition: service_healthy
     ports: ["8080:8080"]
-  # Optional free OSINT CLIs. Not started by default and not required for npm run build/test.
-  #   docker compose --profile osint build osint-cli
-  # Then set OSINT_IDENTITY_ENABLED=true and OSINT_DOCKER_IMAGE=caseclosedfl-osint:local
-  # Paid OSINT APIs are out of scope (no Hunter/HIBP/DeHashed/IntelX/Epieos services).
+    # OSINT CLIs are on PATH in this image. Enable with OSINT_IDENTITY_ENABLED=true
+    # in .env — no OSINT_DOCKER_IMAGE / docker-in-docker required.
+  # The validator image (build: .) already bakes Holehe, PhoneInfoga, Mosint, and
+  # h8mail onto PATH. Set OSINT_IDENTITY_ENABLED=true on that service for local
+  # compose. This sidecar is optional host-docker fallback only — not used on
+  # DigitalOcean App Platform (no docker-in-docker). Paid OSINT APIs are out of scope.
   osint-cli:
     profiles: ["osint"]
     build:
