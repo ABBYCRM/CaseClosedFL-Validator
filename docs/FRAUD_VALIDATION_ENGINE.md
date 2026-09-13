@@ -167,9 +167,9 @@ If a fraud engine returns `MANUAL_REVIEW` or `HIGH_RISK`, the existing lead vali
 
 ## Optional OSINT identity lookups
 
-When `OSINT_IDENTITY_ENABLED=true`, the IDENTITY engine also runs `IDENTITY_OSINT_LOOKUP` (Holehe, PhoneInfoga, Mosint, h8mail) during the same `evaluateFraudRisk` call. Observations are attached as `UNKNOWN` findings and as `dimensions.identity_osint`. They do not, by themselves, create `HIGH_RISK`. EXTERNAL_VERIFICATION does **not** treat OSINT as authoritative issuer verification.
+When `OSINT_IDENTITY_ENABLED=true`, the IDENTITY engine also runs `IDENTITY_OSINT_LOOKUP` (Holehe, PhoneInfoga, Mosint, h8mail) during the same `evaluateFraudRisk` call. When `COURTLISTENER_ENABLED=true`, the same lookup adds one free CourtListener REST v4 RECAP/docket search by person name. Observations are attached as `UNKNOWN` findings and as `dimensions.identity_osint`. They do not, by themselves, create `HIGH_RISK`. Missing token, rate-limit, or CourtListener errors are `UNAVAILABLE` and do not raise risk. EXTERNAL_VERIFICATION does **not** treat OSINT or public court-docket hits as authoritative issuer verification or as a criminal background check.
 
-Paid breach/email APIs are out of scope. Missing CLIs are `UNAVAILABLE`. See `docs/OSINT_IDENTITY_SETUP.md`.
+Paid breach/email APIs and paid PACER fetches are out of scope. Missing CLIs are `UNAVAILABLE`. See `docs/OSINT_IDENTITY_SETUP.md`.
 
 ## Security
 

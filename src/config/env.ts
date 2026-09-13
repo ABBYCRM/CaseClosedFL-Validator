@@ -104,7 +104,11 @@ const Schema=z.object({
   H8MAIL_BIN:z.string().default("h8mail"),
   H8MAIL_DOCKER_IMAGE:z.string().default(""),
   H8MAIL_LOCAL_BREACH_PATH:z.string().default(""),
-  H8MAIL_TIMEOUT_MS:z.coerce.number().int().positive().optional()
+  H8MAIL_TIMEOUT_MS:z.coerce.number().int().positive().optional(),
+  COURTLISTENER_ENABLED:bool,
+  COURTLISTENER_API_TOKEN:z.string().default(""),
+  COURTLISTENER_BASE_URL:z.string().url().default("https://www.courtlistener.com/api/rest/v4"),
+  COURTLISTENER_TIMEOUT_MS:z.coerce.number().int().positive().default(12000)
 });
 export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined>=process.env){const parsed=Schema.parse(blankToUndef(source));return{...parsed,HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID};}
 export const env=parseEnv();

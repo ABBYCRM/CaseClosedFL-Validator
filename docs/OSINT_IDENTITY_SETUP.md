@@ -24,7 +24,7 @@ This PR does **not** implement or require:
 
 Approximate market pricing (do not purchase for this validator): Hunter ~$34–$209/mo; HIBP Core ~$4.39/mo / Pro ~$379/mo; DeHashed UI ~$6.49–$29.99/mo, API ~$180+/mo; IntelX free limited / ~€7–€199/mo; Epieos free tiny / €19–€149. Paid keys are not a supported path.
 
-Maigret, Sherlock, and GHunt are also not wired in this change. Prefer the four free CLIs below.
+Maigret, Sherlock, and GHunt are also not wired in this change. Prefer the four free CLIs below. CourtListener REST v4 is an optional fifth **HTTP** adapter (not a CLI) for public RECAP/docket hits.
 
 ## Enable flag
 
@@ -33,6 +33,16 @@ OSINT_IDENTITY_ENABLED=true
 ```
 
 Default is `false`. When `true`, `IDENTITY_OSINT_LOOKUP` runs automatically inside the existing validation / fraud path (no separate manual job). Each adapter soft-fails if its CLI is missing so `npm run build` / `npm test` and lead validation still complete.
+
+Independent court-records flag (also default `false`):
+
+```bash
+COURTLISTENER_ENABLED=true
+COURTLISTENER_API_TOKEN=
+COURTLISTENER_BASE_URL=https://www.courtlistener.com/api/rest/v4
+```
+
+CourtListener can run even when the four CLIs are off. Auth is `Authorization: Token <token>` (the word **Token**, not Bearer). One RECAP `type=r` search per validation, by person name plus optional state. Timeouts, missing token, HTTP 429, and any other error are `UNAVAILABLE` and **do not raise risk**. The adapter never calls RECAP Fetch / PACER purchase APIs.
 
 ## Free tools
 
@@ -100,6 +110,10 @@ MOSINT_DOCKER_IMAGE=
 H8MAIL_BIN=h8mail
 H8MAIL_DOCKER_IMAGE=
 H8MAIL_LOCAL_BREACH_PATH=
+COURTLISTENER_ENABLED=false
+COURTLISTENER_API_TOKEN=
+COURTLISTENER_BASE_URL=https://www.courtlistener.com/api/rest/v4
+COURTLISTENER_TIMEOUT_MS=12000
 ```
 
 Per-tool `*_TIMEOUT_MS` overrides `OSINT_TIMEOUT_MS`. Empty timeout values use the shared default.
@@ -108,7 +122,7 @@ Docker resolution: if the local binary is not on `PATH` and a docker image is se
 
 ## What runs during validation
 
-When enabled, `validateLead` → `evaluateFraudRisk` → `IDENTITY_OSINT_LOOKUP` executes Holehe, PhoneInfoga, Mosint, and h8mail in parallel (each on its own timeout). Results:
+When enabled, `validateLead` → `evaluateFraudRisk` → `IDENTITY_OSINT_LOOKUP` executes Holehe, PhoneInfoga, Mosint, and h8mail in parallel (each on its own timeout). If `COURTLISTENER_ENABLED=true`, that same lookup adds **one** CourtListener RECAP search. Results:
 
 1. Attach to the IDENTITY fraud dimension as `UNKNOWN` observations (they do not raise `HIGH_RISK` by themselves).
 2. EXTERNAL_VERIFICATION records that OSINT is **not** authoritative issuer verification.
@@ -122,9 +136,9 @@ The note always leads with one of:
 | Verdict | When |
 | --- | --- |
 | 🟢 GOOD — looks fine to proceed | OSINT ran and signals are consistent/normal (public registrations expected, US mobile, no local breach hit, no stacked risk). Rule of thumb: proceed with normal intake. |
-| 🟡 CAUTION — review before sending out | Weak email footprint + VOIP/non-mobile, and/or a local breach hit / sparse recon. Rule of thumb: dig first before attorney send / billable. |
-| 🔴 RED FLAG — hold / do not treat as clean | Stacked burner-style / no credible footprint + invalid or high-risk phone, or multiple existing fraud-rule signals. Rule of thumb: hold until human clears. |
-| ⚪ INCOMPLETE — checks didn’t fully run | OSINT disabled, or a majority of adapters UNAVAILABLE/timeout. **Missing checks do NOT count as risk.** |
+| 🟡 CAUTION — review before sending out | Weak email footprint + VOIP/non-mobile, and/or a local breach hit / sparse recon, and/or an explicit criminal-docket **label** on a public CourtListener hit (alone or with other signals). Rule of thumb: dig first before attorney send / billable. |
+| 🔴 RED FLAG — hold / do not treat as clean | Stacked burner-style / no credible footprint + invalid or high-risk phone, or multiple existing fraud-rule signals, optionally combined with a clear criminal-docket label. Court hits never invent a red flag by themselves. Rule of thumb: hold until human clears. |
+| ⚪ INCOMPLETE — checks didn’t fully run | OSINT disabled, or a majority of CLI adapters UNAVAILABLE/timeout, or CourtListener-only mode with token/rate-limit/error. **Missing checks do NOT count as risk.** |
 
 Observational OSINT does not invent fraud. Breach secrets stay redacted.
 
@@ -148,6 +162,7 @@ Staff should see this shape (WhatsApp-style text; HubSpot stores the same lines 
   • US mobile
   • Email recon signals observed
   • No local breach hit
+  • No public CourtListener docket hits — absence is not clearance
 • Holehe (email site registrations): OBSERVED for j***@example.com
   • instagram: Holehe observed a public registration signal for instagram.
   • twitter: Holehe observed a public registration signal for twitter.
@@ -158,8 +173,11 @@ Staff should see this shape (WhatsApp-style text; HubSpot stores the same lines 
   • Mosint observed: related domain example.com.
 • h8mail (local/free breach): OBSERVED for j***@example.com
   • h8mail reported no local/public-source hits. Absence of hits is not proof of authenticity.
+• CourtListener (public court records): OBSERVED for Jane Doe
+  • CourtListener RECAP search returned no public docket hits. This is a public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.
+• CourtListener disclaimer: Public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.
 • Staff note: Signals look consistent and normal. Public registrations are expected. Proceed with normal intake.
-• Tools: Holehe, PhoneInfoga, Mosint, h8mail (free OSS only; paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope)
+• Tools: Holehe, PhoneInfoga, Mosint, h8mail (free OSS); CourtListener REST v4 (free public RECAP/dockets only — not a criminal background check; no PACER purchase); paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope
 ```
 
 🟡 CAUTION adds `Why caution:` (and uses “dig first before attorney send / billable”). 🔴 RED FLAG adds `Why red flag:` (hold until human clears). ⚪ INCOMPLETE is used when OSINT is disabled or most adapters did not finish — that is not treated as risk.
@@ -171,3 +189,4 @@ When `OSINT_IDENTITY_ENABLED=false`, the OSINT section says `DISABLED` and the s
 - Do not pass claimant email or phone to any tool that sends mail or places calls.
 - Prefer `H8MAIL_LOCAL_BREACH_PATH` pointing at a file you already lawfully hold. Do not commit breach dumps.
 - Holehe/Mosint/PhoneInfoga need outbound HTTPS to third-party sites. That is optional operator network policy, not a Validator paid integration.
+- CourtListener is free REST only. Respect ~5 requests/minute, 50/hour, 125/day. Do not enable extra pagination, RECAP Fetch, or PACER purchase. Notes must keep the background-check disclaimer.

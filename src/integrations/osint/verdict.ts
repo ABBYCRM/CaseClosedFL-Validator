@@ -1,7 +1,7 @@
 import type {Lead} from "../../validation/schema.js";
 import {leadEmail,leadPhone} from "./targets.js";
 import {redactEmail,redactPhone} from "./redact.js";
-import type {OsintAdapterResult,OsintLookupReport} from "./types.js";
+import {OSINT_CLI_PROVIDERS,type OsintAdapterResult,type OsintLookupReport} from "./types.js";
 
 export type StaffVerdictLevel="GOOD"|"CAUTION"|"RED_FLAG"|"INCOMPLETE";
 
@@ -84,6 +84,7 @@ export function osintSignals(report?:OsintLookupReport|null){
   const phone=adapterOf(report??undefined,"phoneinfoga");
   const mosint=adapterOf(report??undefined,"mosint");
   const h8mail=adapterOf(report??undefined,"h8mail");
+  const court=adapterOf(report??undefined,"courtlistener");
   const registrations=holehe?.status==="OBSERVED"
     ?holehe.findings.filter(f=>f.kind==="EMAIL_SITE_REGISTRATION").length
     :undefined;
@@ -92,6 +93,12 @@ export function osintSignals(report?:OsintLookupReport|null){
     :undefined;
   const breach=h8mail?.status==="OBSERVED"
     ?h8mail.findings.some(f=>f.kind==="LOCAL_BREACH_HIT")
+    :undefined;
+  const courtHits=court?.status==="OBSERVED"
+    ?court.findings.filter(f=>f.kind==="COURT_DOCKET_HIT").length
+    :undefined;
+  const criminalDocket=court?.status==="OBSERVED"
+    ?court.findings.some(f=>f.kind==="COURT_CRIMINAL_DOCKET_SIGNAL")
     :undefined;
   const lineType=metaValue(phone,["line_type","linetype","line"]);
   const country=metaValue(phone,["country","country_code","countrycode"]);
@@ -106,13 +113,15 @@ export function osintSignals(report?:OsintLookupReport|null){
   const highRiskPhone=invalid||voip||(!mobile&&!!lineType&&!/unknown/i.test(lineType));
   const burnerLexicon=/disposable|temp(?:orary)?\s*mail|burner|guerrilla/i.test(mosintText);
   return{
-    holehe,phone,mosint,h8mail,
-    registrations,recon,breach,
+    holehe,phone,mosint,h8mail,court,
+    registrations,recon,breach,courtHits,criminalDocket,
     lineType,country,mobile,voip,landline,us,invalid,highRiskPhone,burnerLexicon,
     holeheObserved:holehe?.status==="OBSERVED",
     phoneObserved:phone?.status==="OBSERVED",
     mosintObserved:mosint?.status==="OBSERVED",
     h8mailObserved:h8mail?.status==="OBSERVED",
+    courtObserved:court?.status==="OBSERVED",
+    courtUnavailable:!!court&&adapterDidNotFullyRun(court),
     weakEmailFootprint:holehe?.status==="OBSERVED"&&(registrations??0)===0,
     sparseRecon:mosint?.status==="OBSERVED"&&(recon??0)===0,
     noCredibleFootprint:
@@ -128,11 +137,21 @@ function adapterDidNotFullyRun(adapter:OsintAdapterResult){
   return /timeout|unavailable|not_found|bin_not_found/i.test(blob);
 }
 
+function identityCliAdapters(report?:OsintLookupReport|null){
+  return (report?.adapters??[]).filter(a=>(OSINT_CLI_PROVIDERS as readonly string[]).includes(a.provider));
+}
+
 export function osintChecksIncomplete(report?:OsintLookupReport|null){
   if(!report||!report.enabled||!report.ran) return true;
   if(!report.adapters.length) return true;
-  const incomplete=report.adapters.filter(adapterDidNotFullyRun).length;
-  return incomplete>report.adapters.length/2;
+  const cli=identityCliAdapters(report);
+  const court=report.adapters.find(a=>a.provider==="courtlistener");
+  if(cli.length){
+    const incomplete=cli.filter(adapterDidNotFullyRun).length;
+    return incomplete>cli.length/2;
+  }
+  if(court) return adapterDidNotFullyRun(court);
+  return true;
 }
 
 function materialFraudSignals(dimensions?:Record<string,unknown>){
@@ -179,6 +198,13 @@ export function observationalFlags(report?:OsintLookupReport|null){
   }
   if(s.h8mailObserved){
     flags.push(s.breach?"Local breach hit (secrets redacted)":"No local breach hit");
+  }
+  if(s.courtObserved){
+    if(s.criminalDocket) flags.push("Public court docket with an explicit criminal label (not a background check)");
+    else if((s.courtHits??0)>0) flags.push("Public court-docket hit(s) observed (not a background check)");
+    else flags.push("No public CourtListener docket hits — absence is not clearance");
+  }else if(s.courtUnavailable){
+    flags.push("CourtListener unavailable — missing check, not risk");
   }
   if(!flags.length) flags.push("No observational flags. Missing hits are UNKNOWN, not risk.");
   return flags;
@@ -235,6 +261,9 @@ export function scoreStaffVerdict(input:StaffVerdictInput={}):StaffVerdict{
   }
 
   const stackedOsint=reasons.some(r=>/burner-style|no credible footprint, local breach/i.test(r));
+  if(s.criminalDocket&&(stackedOsint||fraud.highRisk||fraud.stackedFraud)){
+    reasons.push("Clear criminal-looking public docket label combined with other risk signals — hold. Not a background check.");
+  }
   if(fraud.highRisk||fraud.stackedFraud||stackedOsint){
     const copy=copyFor("RED_FLAG");
     return {...copy,level:"RED_FLAG",reasons,observational_flags:flags,staff_note:copy.staff_note};
@@ -243,11 +272,19 @@ export function scoreStaffVerdict(input:StaffVerdictInput={}):StaffVerdict{
   if(incomplete){
     if(!report) reasons.push("OSINT report was not attached");
     else if(!report.enabled) reasons.push("OSINT identity lookups were disabled");
-    else reasons.push("Majority of OSINT adapters were unavailable, skipped, or timed out");
+    else if(!identityCliAdapters(report).length&&s.courtUnavailable){
+      reasons.push("CourtListener was unavailable, rate-limited, or missing a token — missing check, not risk");
+    }else reasons.push("Majority of OSINT adapters were unavailable, skipped, or timed out");
     const copy=copyFor("INCOMPLETE");
     return {...copy,level:"INCOMPLETE",reasons,observational_flags:flags,staff_note:copy.staff_note};
   }
 
+  if(s.criminalDocket){
+    reasons.push("Public docket with an explicit criminal label — dig first. This is not a criminal background check.");
+  }
+  if((s.courtHits??0)>0&&!s.criminalDocket&&(s.breach||s.weakEmailFootprint||s.voip||fraud.review.length>0)){
+    reasons.push("Public court-docket hit plus other observational signals — dig first. Not a background check.");
+  }
   if(s.breach) reasons.push("Local breach hit — dig first");
   if(s.weakEmailFootprint&&(s.voip||!s.mobile&&s.phoneObserved)){
     reasons.push("Weak email footprint plus VOIP / non-mobile line");

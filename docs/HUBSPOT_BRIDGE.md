@@ -33,6 +33,7 @@ HubSpot CRM notes (read-only)
         -> validator runtime (skipped when this intake fingerprint already has validation_id)
         -> evidence + deterministic outcome
         -> optional IDENTITY_OSINT_LOOKUP (when OSINT_IDENTITY_ENABLED=true)
+        -> optional CourtListener RECAP search (when COURTLISTENER_ENABLED=true)
         -> HubSpot-safe HTML `hubspot_note` (verdict first, then contact + OSINT identity)
         -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
@@ -110,6 +111,6 @@ Official-source screenshots captured during the validation run (ScreenshotOne + 
 
 - 🟢 GOOD / 🟡 CAUTION / 🔴 RED FLAG / ⚪ INCOMPLETE (missing checks do **not** count as risk)
 - Contact: name, masked email, masked phone
-- OSINT: status, observational flags, Holehe / PhoneInfoga / Mosint / h8mail, Why caution or Why red flag when applicable, staff note, tools list
+- OSINT: status, observational flags, Holehe / PhoneInfoga / Mosint / h8mail / CourtListener, Why caution or Why red flag when applicable, staff note, tools list
 
-If OSINT is disabled or a majority of CLIs are missing/timed out, the verdict is ⚪ INCOMPLETE. Absence of hits is not fraud. Paid OSINT APIs are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md`.
+If OSINT is disabled or a majority of CLIs are missing/timed out, the verdict is ⚪ INCOMPLETE. CourtListener token/rate-limit/errors are `UNAVAILABLE` and do **not** count as risk. Public court-docket hits are evidence only — not a criminal background check; absence of hits is not clearance. Paid OSINT APIs and paid PACER fetches are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md`.

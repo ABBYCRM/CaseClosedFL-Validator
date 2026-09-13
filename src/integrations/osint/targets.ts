@@ -28,3 +28,12 @@ export function leadEmail(lead:Lead):string|undefined{
 export function leadPhone(lead:Lead):string|undefined{
   return normalizePhone(lead.client.phone??"")??normalizePhone(metadataPhone(lead)??"");
 }
+
+/** First + last name for CourtListener party search. One token is too broad. */
+export function leadPersonName(lead:Lead):string|undefined{
+  const first=String(lead.client.first_name??"").trim();
+  const last=String(lead.client.last_name??"").trim();
+  if(!first||!last) return undefined;
+  const full=`${first} ${last}`.replace(/\s+/g," ").trim();
+  return full.length>=3?full:undefined;
+}

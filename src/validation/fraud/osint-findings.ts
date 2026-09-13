@@ -10,7 +10,7 @@ function finding(kind:string,observation:string,extra:Partial<FraudFinding>={}):
     severity:"LOW",
     confidence:"LOW",
     observation,
-    possible_benign_explanation:"Public registrations, phone metadata, or local breach-file hits have many benign explanations and are not identity proof.",
+    possible_benign_explanation:"Public registrations, phone metadata, local breach-file hits, or public court-docket name matches have many benign explanations and are not identity proof or a background check.",
     recommended_followup:"Review observed OSINT detail in the HubSpot validation NOTE. Do not contact the claimant from the validator.",
     ...extra
   };
@@ -24,7 +24,8 @@ export function identityOsintCheckBuckets(osint?:OsintLookupReport){
     notPerformed.push("IDENTITY_OSINT_LOOKUP");
     return {performed,unavailable,notPerformed};
   }
-  performed.push("IDENTITY_OSINT_LOOKUP");
+  if(osint.adapters.some(a=>a.provider!=="courtlistener")) performed.push("IDENTITY_OSINT_LOOKUP");
+  else notPerformed.push("IDENTITY_OSINT_LOOKUP");
   for(const adapter of osint.adapters){
     if(adapter.status==="OBSERVED") performed.push(...adapter.checks_performed);
     else if(adapter.status==="UNAVAILABLE"||adapter.status==="SKIPPED"){
