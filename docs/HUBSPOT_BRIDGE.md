@@ -29,10 +29,11 @@ HubSpot CRM notes (read-only)
         -> keep CaseClosedFL Qualified Personal Injury Intake
         -> merge newest CaseClosedFL supplemental note if present
         -> contact properties (email / name / phone / state / ZIP)
-        -> CaseClosedFL Lead schema (fail closed; never invent fields)
+        -> CaseClosedFL Lead schema (fail closed; never invent fields; phone maps to client.phone)
         -> validator runtime (skipped when this intake fingerprint already has validation_id)
         -> evidence + deterministic outcome
-        -> HubSpot-safe HTML `hubspot_note` (WhatsApp-style layout: bold section headers, one field per line)
+        -> optional IDENTITY_OSINT_LOOKUP (when OSINT_IDENTITY_ENABLED=true)
+        -> HubSpot-safe HTML `hubspot_note` including the full OSINT identity block
         -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
 
@@ -102,3 +103,17 @@ x-admin-secret: ...
 The bridge fails closed. It does not invent case type or state, create contacts, update contacts, pick a contact when more than one association exists, or attach a note when the intake contact cannot be resolved. Validation can still run through the normal `/v1/validations` API independently of HubSpot.
 
 Official-source screenshots captured during the validation run (ScreenshotOne + NVIDIA OCR) are persisted against `validation_id` and attached on the outcome NOTE (`hs_attachment_ids`, max `HUBSPOT_NOTE_MAX_SCREENSHOTS`). File-upload failures do not block the text note.
+
+## OSINT identity block on the validation NOTE
+
+When validation runs with `OSINT_IDENTITY_ENABLED=true`, `human_note` / `hubspot_note` include a dedicated **OSINT identity** section so staff do not need another UI. The block lists:
+
+- redacted email and phone
+- Holehe site registration observations
+- PhoneInfoga phone metadata
+- Mosint recon signals
+- h8mail local/free-source results (secrets redacted)
+- observational risk flags (not a fraud verdict)
+- unavailable / skipped checks and adapter errors
+
+If OSINT is disabled or a CLI is missing, the same section still appears as `DISABLED` / `UNAVAILABLE` / `UNKNOWN`. Absence of hits is not fraud. Paid OSINT APIs are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md`.

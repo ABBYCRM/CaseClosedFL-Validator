@@ -12,6 +12,7 @@ export function submissionEmail(s?:HubSpotSubmission){const m=values(s);return f
 export function toLead(c:CombinedSubmission):Lead{
   const a=values(c.initial),b=values(c.supplemental),maps=[b,a];
   const email=firstPresent(maps,["email","email_address","contact_email"]);
+  const phone=firstPresent(maps,["phone","phone_number","mobilephone","mobile"]);
   const ct=mapCaseType(firstPresent(maps,["case_type","incident_type","type_of_accident","accident_type"]));
   const st=mapState(firstPresent(maps,["service_state","state","incident_state"]));
   if(!ct) throw new Error("HUBSPOT_FORM_CASE_TYPE_UNMAPPED");
@@ -20,7 +21,7 @@ export function toLead(c:CombinedSubmission):Lead{
   const leadId=`hs_${crypto.createHash("sha256").update(conversionIds.sort().join(":" )||`${email}:${Date.now()}`).digest("hex").slice(0,24)}`;
   return {
     lead_id:leadId,state:st,case_type:ct,
-    client:{first_name:firstPresent(maps,["firstname","first_name"]),last_name:firstPresent(maps,["lastname","last_name"]),email},
+    client:{first_name:firstPresent(maps,["firstname","first_name"]),last_name:firstPresent(maps,["lastname","last_name"]),email,phone},
     incident:{
       date:firstPresent(maps,["accident_date","incident_date","date_of_accident"]),county:firstPresent(maps,["county","incident_county"]),city:firstPresent(maps,["city","incident_city"]),agency:firstPresent(maps,["police_agency","agency","law_enforcement_agency"]),report_number:firstPresent(maps,["police_report_number","report_number"]),case_number:firstPresent(maps,["case_number","agency_case_number"]),location:firstPresent(maps,["accident_location","incident_location","address"]),business_name:firstPresent(maps,["property_owner_business","business_name","property_business"]),business_address:firstPresent(maps,["business_address","property_address"]),carrier_name:firstPresent(maps,["carrier_name","commercial_carrier","trucking_company"]),usdot_number:firstPresent(maps,["usdot_number","dot_number"])
     },

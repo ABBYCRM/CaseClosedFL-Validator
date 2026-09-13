@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import { env } from "../config/env.js";
 import { toHubSpotNoteHtml } from "../integrations/hubspot/notes.js";
+import { formatOsintNoteLines, isOsintDimensionKey } from "../integrations/osint/note.js";
+import type { OsintLookupReport } from "../integrations/osint/types.js";
 import type { FinalStatus, IncompleteReason } from "./schema.js";
 
 export interface OutcomeInput{
@@ -86,10 +88,16 @@ function humanNote(i:OutcomeInput, verified:string[]){
   lines.push(`Status: *${i.status}*${i.reason?` — ${pretty(i.reason)}`:""}`);
   lines.push("");
 
-  const dimensionEntries=Object.entries(i.dimensions).filter(([,v])=>v!==undefined);
+  const dimensionEntries=Object.entries(i.dimensions).filter(([k,v])=>v!==undefined&&!isOsintDimensionKey(k));
   if(dimensionEntries.length){
     lines.push("📋 *Checks*");
     for(const [k,v] of dimensionEntries) lines.push(...formatDimensionLines(k,v));
+    lines.push("");
+  }
+
+  const osint=i.dimensions.identity_osint??i.dimensions.osint_identity??i.dimensions.IDENTITY_OSINT_LOOKUP;
+  if(osint!==undefined||env.OSINT_IDENTITY_ENABLED){
+    lines.push(...formatOsintNoteLines(osint as OsintLookupReport|undefined));
     lines.push("");
   }
 
