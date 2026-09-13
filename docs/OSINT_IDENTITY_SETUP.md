@@ -45,20 +45,42 @@ Default is `false`. When `true`, `IDENTITY_OSINT_LOOKUP` runs automatically insi
 
 Cost: **free OSS**. No subscription.
 
-Optional compose profile (does not start with the default stack):
+## DigitalOcean App Platform
+
+Production on App Platform builds the **main** `Dockerfile` (the Node API image). That image now bakes the four FREE CLIs onto `PATH` for the `node` user:
+
+| Tool | How it is installed in the image |
+| --- | --- |
+| Holehe `1.61` | `pip` into `/opt/osint` venv; symlink `/usr/local/bin/holehe` |
+| h8mail `2.5.6` | `pip` into `/opt/osint` venv; symlink `/usr/local/bin/h8mail` |
+| PhoneInfoga `v2.11.0` | Official GitHub release tarball (`Linux_x86_64` / `Linux_arm64`) |
+| Mosint `v3.0.0` | Official `go install github.com/alpkeskin/mosint/v3/cmd/mosint@v3.0.0` (no release binary) |
+
+App Platform does **not** need `OSINT_DOCKER_IMAGE` / docker-in-docker. After this image deploys:
+
+1. Set `OSINT_IDENTITY_ENABLED=true` on the App Platform component (same env as `.env.example`).
+2. Leave `HOLEHE_BIN=holehe`, `PHONEINFOGA_BIN=phoneinfoga`, `MOSINT_BIN=mosint`, `H8MAIL_BIN=h8mail` (defaults).
+3. Leave the `*_DOCKER_IMAGE` values empty.
+4. Redeploy so App Platform rebuilds from the updated `Dockerfile`.
+
+Adapters still soft-fail (`UNAVAILABLE` / `ERROR`) if a CLI times out or exits without output. `npm run build` / `npm test` on CI and laptops still do **not** require these binaries.
+
+Mosint is configured with an empty `/home/node/.mosint.yaml` (no Hunter / HIBP / IntelX / EmailRep / BreachDirectory keys). Paid APIs stay out of scope; Mosint then uses only its free/public checks.
+
+Optional compose profile (does not start with the default stack; not used on App Platform):
 
 ```bash
 docker compose --profile osint build osint-cli
 # Then point HOLEHE_BIN / H8MAIL_BIN at the image via OSINT_DOCKER_IMAGE=caseclosedfl-osint:local
 ```
 
-Official PhoneInfoga image (optional, not required at boot):
+Official PhoneInfoga image (optional host-side fallback only):
 
 ```bash
 export PHONEINFOGA_DOCKER_IMAGE=sundowndev/phoneinfoga
 ```
 
-The main Node `Dockerfile` does **not** vendor these CLIs. Missing binaries never fail `npm run build` or `npm test`.
+The main Node `Dockerfile` vendors the four FREE CLIs so App Platform can run them. Missing binaries on a **host** `npm` path never fail `npm run build` or `npm test`.
 
 ## Environment (placeholders only)
 
@@ -82,7 +104,7 @@ H8MAIL_LOCAL_BREACH_PATH=
 
 Per-tool `*_TIMEOUT_MS` overrides `OSINT_TIMEOUT_MS`. Empty timeout values use the shared default.
 
-Docker resolution: if the local binary is not on `PATH` and a docker image is set **and** `docker` exists, the adapter runs `docker run --rm --init --entrypoint <bin> <image> …`. If neither binary nor docker image works → `UNAVAILABLE`.
+Docker resolution: if the local binary is not on `PATH` and a docker image is set **and** `docker` exists, the adapter runs `docker run --rm --init --entrypoint <bin> <image> …`. If neither binary nor docker image works → `UNAVAILABLE`. On DigitalOcean App Platform the binaries are already on `PATH`, so this docker fallback is unused.
 
 ## What runs during validation
 
