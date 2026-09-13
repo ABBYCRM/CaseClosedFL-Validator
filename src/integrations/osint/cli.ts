@@ -2,7 +2,7 @@ import {spawn} from "node:child_process";
 import {accessSync,constants} from "node:fs";
 import {delimiter,isAbsolute} from "node:path";
 import {keyed,type OsintConfig} from "./config.js";
-import type {OsintProvider} from "./types.js";
+import {OSINT_CLI_PROVIDERS,type OsintCliProvider,type OsintProvider} from "./types.js";
 
 export interface CliResult{
   command:string;
@@ -23,19 +23,23 @@ export interface ResolvedCommand{
 export type RunCli=(command:string,args:string[],opts:{timeoutMs:number})=>Promise<CliResult>;
 export type ResolveTool=(provider:OsintProvider,cfg:OsintConfig)=>ResolvedCommand|undefined;
 
-const BIN_DEFAULT:Record<OsintProvider,keyof OsintConfig>={
+const BIN_DEFAULT:Record<OsintCliProvider,keyof OsintConfig>={
   holehe:"HOLEHE_BIN",
   phoneinfoga:"PHONEINFOGA_BIN",
   mosint:"MOSINT_BIN",
   h8mail:"H8MAIL_BIN"
 };
 
-const DOCKER_DEFAULT:Record<OsintProvider,keyof OsintConfig>={
+const DOCKER_DEFAULT:Record<OsintCliProvider,keyof OsintConfig>={
   holehe:"HOLEHE_DOCKER_IMAGE",
   phoneinfoga:"PHONEINFOGA_DOCKER_IMAGE",
   mosint:"MOSINT_DOCKER_IMAGE",
   h8mail:"H8MAIL_DOCKER_IMAGE"
 };
+
+function isCliProvider(provider:OsintProvider):provider is OsintCliProvider{
+  return (OSINT_CLI_PROVIDERS as readonly string[]).includes(provider);
+}
 
 export function commandExists(bin:string,pathEnv=process.env.PATH??""):boolean{
   if(!bin.trim()) return false;
@@ -50,6 +54,7 @@ export function commandExists(bin:string,pathEnv=process.env.PATH??""):boolean{
 }
 
 export function resolveTool(provider:OsintProvider,cfg:OsintConfig):ResolvedCommand|undefined{
+  if(!isCliProvider(provider)) return undefined;
   const bin=String(cfg[BIN_DEFAULT[provider]]??provider);
   if(commandExists(bin)) return {command:bin,prefixArgs:[],via:"bin"};
   const image=String(cfg[DOCKER_DEFAULT[provider]]||cfg.OSINT_DOCKER_IMAGE||"");

@@ -1,8 +1,10 @@
-export const OSINT_PROVIDERS=["holehe","phoneinfoga","mosint","h8mail"] as const;
+export const OSINT_CLI_PROVIDERS=["holehe","phoneinfoga","mosint","h8mail"] as const;
+export type OsintCliProvider=typeof OSINT_CLI_PROVIDERS[number];
+export const OSINT_PROVIDERS=["holehe","phoneinfoga","mosint","h8mail","courtlistener"] as const;
 export type OsintProvider=typeof OSINT_PROVIDERS[number];
 
 export type OsintAdapterStatus="OBSERVED"|"UNAVAILABLE"|"ERROR"|"SKIPPED"|"DISABLED";
-export type OsintTargetType="email"|"phone";
+export type OsintTargetType="email"|"phone"|"name";
 
 export interface OsintFinding{
   kind:string;
@@ -13,7 +15,7 @@ export interface OsintFinding{
 
 export interface OsintAdapterResult{
   provider:OsintProvider;
-  capability:"EMAIL_REGISTRATION"|"PHONE_LOOKUP"|"EMAIL_RECON"|"LOCAL_BREACH";
+  capability:"EMAIL_REGISTRATION"|"PHONE_LOOKUP"|"EMAIL_RECON"|"LOCAL_BREACH"|"COURT_RECORDS";
   status:OsintAdapterStatus;
   target_type:OsintTargetType;
   target_redacted?:string;

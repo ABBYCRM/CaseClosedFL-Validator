@@ -16,6 +16,10 @@ export interface OsintConfig{
   H8MAIL_DOCKER_IMAGE:string;
   H8MAIL_LOCAL_BREACH_PATH:string;
   H8MAIL_TIMEOUT_MS:number;
+  COURTLISTENER_ENABLED:boolean;
+  COURTLISTENER_API_TOKEN:string;
+  COURTLISTENER_BASE_URL:string;
+  COURTLISTENER_TIMEOUT_MS:number;
 }
 
 function num(value:unknown,fallback:number){
@@ -52,7 +56,11 @@ export function osintConfigFrom(source:Record<string,unknown>|NodeJS.ProcessEnv)
     H8MAIL_BIN:str(source.H8MAIL_BIN,"h8mail"),
     H8MAIL_DOCKER_IMAGE:str(source.H8MAIL_DOCKER_IMAGE),
     H8MAIL_LOCAL_BREACH_PATH:str(source.H8MAIL_LOCAL_BREACH_PATH),
-    H8MAIL_TIMEOUT_MS:num(source.H8MAIL_TIMEOUT_MS,timeout)
+    H8MAIL_TIMEOUT_MS:num(source.H8MAIL_TIMEOUT_MS,timeout),
+    COURTLISTENER_ENABLED:bool(source.COURTLISTENER_ENABLED,false),
+    COURTLISTENER_API_TOKEN:str(source.COURTLISTENER_API_TOKEN),
+    COURTLISTENER_BASE_URL:str(source.COURTLISTENER_BASE_URL,"https://www.courtlistener.com/api/rest/v4"),
+    COURTLISTENER_TIMEOUT_MS:num(source.COURTLISTENER_TIMEOUT_MS,12_000)
   };
 }
 

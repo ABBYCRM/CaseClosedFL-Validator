@@ -10,13 +10,15 @@ import {
 
 const FINDING_CAP=80;
 const LINE_CAP=400;
-const TOOLS_LINE="• Tools: Holehe, PhoneInfoga, Mosint, h8mail (free OSS only; paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope)";
+const TOOLS_LINE="• Tools: Holehe, PhoneInfoga, Mosint, h8mail (free OSS); CourtListener REST v4 (free public RECAP/dockets only — not a criminal background check; no PACER purchase); paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope";
+const COURT_DISCLAIMER="Public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.";
 
 function adapterTitle(provider:string){
   if(provider==="holehe") return "Holehe (email site registrations)";
   if(provider==="phoneinfoga") return "PhoneInfoga (phone signals)";
   if(provider==="mosint") return "Mosint (email recon)";
   if(provider==="h8mail") return "h8mail (local/free breach)";
+  if(provider==="courtlistener") return "CourtListener (public court records)";
   return provider;
 }
 
@@ -98,6 +100,9 @@ export function formatOsintNoteLines(
   for(const provider of ["holehe","phoneinfoga","mosint","h8mail"] as const){
     if(seen.has(provider)) continue;
     lines.push(`• ${adapterTitle(provider)}: NOT RUN — missing check, not risk`);
+  }
+  if(seen.has("courtlistener")){
+    lines.push(`• CourtListener disclaimer: ${COURT_DISCLAIMER}`);
   }
   if(report.unavailable.length){
     lines.push("• Unavailable / skipped checks (not risk):");

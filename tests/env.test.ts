@@ -31,6 +31,10 @@ describe("optional direct-search env",()=>{
     expect(parsed.MOSINT_BIN).toBe("mosint");
     expect(parsed.H8MAIL_BIN).toBe("h8mail");
     expect(parsed.H8MAIL_LOCAL_BREACH_PATH).toBe("");
+    expect(parsed.COURTLISTENER_ENABLED).toBe(false);
+    expect(parsed.COURTLISTENER_API_TOKEN).toBe("");
+    expect(parsed.COURTLISTENER_BASE_URL).toBe("https://www.courtlistener.com/api/rest/v4");
+    expect(parsed.COURTLISTENER_TIMEOUT_MS).toBe(12000);
     expect(parsed).not.toHaveProperty("HUNTER_API_KEY");
     expect(parsed).not.toHaveProperty("HIBP_API_KEY");
     expect(parsed).not.toHaveProperty("DEHASHED_API_KEY");
