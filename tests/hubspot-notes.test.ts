@@ -80,6 +80,7 @@ describe("notesToLead",()=>{
     expect(parsed.lead.state).toBe("FL");
     expect(parsed.lead.case_type).toBe("AUTO_ACCIDENT");
     expect(parsed.lead.client.email).toBe("paisabrazilfl@gmail.com");
+    expect(parsed.lead.client.phone).toBe("+13055550100");
     expect(parsed.lead.client.first_name).toBe("Paisa");
     expect(parsed.lead.incident.date).toBe("2026-08-10");
     expect(parsed.lead.qualification.injured).toBe("YES");

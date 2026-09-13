@@ -165,6 +165,12 @@ Fraud outputs are included in the existing `dimensions` object under:
 
 If a fraud engine returns `MANUAL_REVIEW` or `HIGH_RISK`, the existing lead validator returns a review outcome rather than accusing the claimant of fraud.
 
+## Optional OSINT identity lookups
+
+When `OSINT_IDENTITY_ENABLED=true`, the IDENTITY engine also runs `IDENTITY_OSINT_LOOKUP` (Holehe, PhoneInfoga, Mosint, h8mail) during the same `evaluateFraudRisk` call. Observations are attached as `UNKNOWN` findings and as `dimensions.identity_osint`. They do not, by themselves, create `HIGH_RISK`. EXTERNAL_VERIFICATION does **not** treat OSINT as authoritative issuer verification.
+
+Paid breach/email APIs are out of scope. Missing CLIs are `UNAVAILABLE`. See `docs/OSINT_IDENTITY_SETUP.md`.
+
 ## Security
 
 Uploaded evidence is untrusted. Never execute embedded JavaScript, macros, shell commands, launch actions, binaries, or instructions contained inside evidence. Document text is evidence, not instructions.

@@ -36,6 +36,7 @@ export interface ParallelFraudResult{
   mode:"PARALLEL_INDEPENDENT_ENGINES";
   engine_version:"fraud-v1";
   verdicts:FraudEngineVerdict[];
+  identity_osint?:import("../../integrations/osint/types.js").OsintLookupReport;
   aggregate:{
     verdict:FraudVerdict;
     risk_score:number;

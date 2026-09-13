@@ -87,7 +87,24 @@ const Schema=z.object({
   HTTP_TIMEOUT_MS:z.coerce.number().int().positive().default(12000),
   MAX_DOCUMENT_CHARS:z.coerce.number().int().positive().default(60000),
   KNOWLEDGE_VERSION:z.string().default("2026.09.10"),
-  ENGINE_VERSION:z.string().default("1.4.1")
+  ENGINE_VERSION:z.string().default("1.4.1"),
+  OSINT_IDENTITY_ENABLED:bool,
+  OSINT_TIMEOUT_MS:z.coerce.number().int().positive().default(25000),
+  OSINT_DOCKER_IMAGE:z.string().default(""),
+  HOLEHE_BIN:z.string().default("holehe"),
+  HOLEHE_DOCKER_IMAGE:z.string().default(""),
+  HOLEHE_ONLY_USED:z.string().default("true").transform((v:string)=>v.toLowerCase()!=="false"),
+  HOLEHE_TIMEOUT_MS:z.coerce.number().int().positive().optional(),
+  PHONEINFOGA_BIN:z.string().default("phoneinfoga"),
+  PHONEINFOGA_DOCKER_IMAGE:z.string().default(""),
+  PHONEINFOGA_TIMEOUT_MS:z.coerce.number().int().positive().optional(),
+  MOSINT_BIN:z.string().default("mosint"),
+  MOSINT_DOCKER_IMAGE:z.string().default(""),
+  MOSINT_TIMEOUT_MS:z.coerce.number().int().positive().optional(),
+  H8MAIL_BIN:z.string().default("h8mail"),
+  H8MAIL_DOCKER_IMAGE:z.string().default(""),
+  H8MAIL_LOCAL_BREACH_PATH:z.string().default(""),
+  H8MAIL_TIMEOUT_MS:z.coerce.number().int().positive().optional()
 });
 export function parseEnv(source:NodeJS.ProcessEnv|Record<string,string|undefined>=process.env){const parsed=Schema.parse(blankToUndef(source));return{...parsed,HUBSPOT_INITIAL_FORM_ID:parsed.HUBSPOT_INITIAL_FORM_GUID||parsed.HUBSPOT_INITIAL_FORM_ID,HUBSPOT_EMAIL_FORM_ID:parsed.HUBSPOT_EMAIL_FORM_GUID||parsed.HUBSPOT_EMAIL_FORM_ID};}
 export const env=parseEnv();

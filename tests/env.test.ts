@@ -25,6 +25,17 @@ describe("optional direct-search env",()=>{
     expect(parsed.BITDEER_EMBED_DIMENSIONS).toBe(4096);
     expect(parsed.BITDEER_RERANK_MODEL).toBe("BAAI/bge-reranker-v2-m3");
     expect(parsed.TAVILY_API_KEY).toBe("");expect(parsed.EXA_API_KEY).toBe("");expect(parsed.FIRECRAWL_API_KEY).toBe("");expect(parsed.SCRAPINGBEE_API_KEY).toBe("");expect(parsed.SCRAPFLY_API_KEY).toBe("");expect(parsed.SCREENSHOTONE_ACCESS_KEY).toBe("");expect(parsed.SCREENSHOTONE_SECRET_KEY).toBe("");expect(parsed.HUBSPOT_NOTE_MAX_SCREENSHOTS).toBe(3);expect(parsed.COMPOSIO_API_KEY).toBe("");expect(parsed.STEEL_API_KEY).toBe("");
+    expect(parsed.OSINT_IDENTITY_ENABLED).toBe(false);
+    expect(parsed.HOLEHE_BIN).toBe("holehe");
+    expect(parsed.PHONEINFOGA_BIN).toBe("phoneinfoga");
+    expect(parsed.MOSINT_BIN).toBe("mosint");
+    expect(parsed.H8MAIL_BIN).toBe("h8mail");
+    expect(parsed.H8MAIL_LOCAL_BREACH_PATH).toBe("");
+    expect(parsed).not.toHaveProperty("HUNTER_API_KEY");
+    expect(parsed).not.toHaveProperty("HIBP_API_KEY");
+    expect(parsed).not.toHaveProperty("DEHASHED_API_KEY");
+    expect(parsed).not.toHaveProperty("INTELX_API_KEY");
+    expect(parsed).not.toHaveProperty("EPIEOS_API_KEY");
   });
   it("aliases retired nvidia provider values to bitdeer",()=>{
     const parsed=parseEnv({MODEL_PROVIDER:"nvidia",EMBEDDING_PROVIDER:"nvidia"});

@@ -22,5 +22,16 @@ services:
       db:
         condition: service_healthy
     ports: ["8080:8080"]
+  # Optional free OSINT CLIs. Not started by default and not required for npm run build/test.
+  #   docker compose --profile osint build osint-cli
+  # Then set OSINT_IDENTITY_ENABLED=true and OSINT_DOCKER_IMAGE=caseclosedfl-osint:local
+  # Paid OSINT APIs are out of scope (no Hunter/HIBP/DeHashed/IntelX/Epieos services).
+  osint-cli:
+    profiles: ["osint"]
+    build:
+      context: ./docker/osint
+    image: caseclosedfl-osint:local
+    network_mode: bridge
+    command: ["sleep","infinity"]
 volumes:
   ccv_pg: {}

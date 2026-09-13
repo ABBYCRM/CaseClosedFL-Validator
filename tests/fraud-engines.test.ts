@@ -46,6 +46,35 @@ describe("parallel fraud engines",()=>{
     expect(result.aggregate.high_risk_engines).toContain("IDENTITY");
   });
 
+  it("does not treat OSINT observations as a fraud accusation",async()=>{
+    const {OSINT_CONTRACT}=await import("../src/integrations/osint/types.js");
+    const osint={
+      capability:"IDENTITY_OSINT_LOOKUP" as const,
+      enabled:true,
+      ran:true,
+      email_redacted:"j***@example.com",
+      adapters:[{
+        provider:"holehe" as const,
+        capability:"EMAIL_REGISTRATION" as const,
+        status:"OBSERVED" as const,
+        target_type:"email" as const,
+        findings:[{kind:"EMAIL_SITE_REGISTRATION",site:"instagram",observation:"Holehe observed a public registration signal for instagram."}],
+        errors:[],
+        checks_performed:["HOLEHE_EMAIL_SITE_REGISTRATION"]
+      }],
+      risk_flags:["HOLEHE_PUBLIC_REGISTRATIONS_OBSERVED"],
+      unavailable:[],
+      errors:[],
+      contract:OSINT_CONTRACT
+    };
+    const result=await runParallelFraudEngines(baseLead(),osint);
+    const identity=result.verdicts.find(v=>v.engine==="IDENTITY");
+    expect(identity?.verdict).toBe("PASS");
+    expect(identity?.findings.some(f=>f.result==="UNKNOWN")).toBe(true);
+    expect(result.aggregate.verdict).toBe("PASS");
+    expect(result.identity_osint).toBe(osint);
+  });
+
   it("does not turn unavailable authoritative verification into fraud",async()=>{
     const lead=Lead.parse({
       ...baseLead(),

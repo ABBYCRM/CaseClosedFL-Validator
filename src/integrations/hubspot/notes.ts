@@ -172,7 +172,8 @@ export function notesToLead(input:NotesToLeadInput):NotesParseResult{
     client:{
       first_name:present(input.contact.firstName)??firstPresent(maps,["firstname","first_name"]),
       last_name:present(input.contact.lastName)??firstPresent(maps,["lastname","last_name"]),
-      email
+      email,
+      phone:present(input.contact.phone)??firstPresent(maps,["phone","phone_number","mobilephone","mobile"])
     },
     incident:{
       date:mapDate(firstPresent(maps,["accident_date","incident_date","date_of_accident","date"])),

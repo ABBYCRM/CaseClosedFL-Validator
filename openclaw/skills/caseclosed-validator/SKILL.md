@@ -20,7 +20,7 @@ Use this skill only when a trusted upstream system supplies a completed `CaseClo
 
 The validator emits `hubspot_note`, `human_note`, and `agent_note.text`. Prefer those fields verbatim when sending a note downstream.
 
-`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects; fraud parallel engines and findings are `name: result` lines.
+`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects; fraud parallel engines and findings are `name: result` lines. Preserve the full `🔎 OSINT identity` section (Holehe, PhoneInfoga, Mosint, h8mail, unavailable checks, errors) verbatim — do not summarize away observed OSINT lines.
 
 Style must be easy to read on a phone, like a WhatsApp message:
 - short lines;
