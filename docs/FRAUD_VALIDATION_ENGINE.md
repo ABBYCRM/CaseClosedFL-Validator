@@ -165,6 +165,8 @@ Fraud outputs are included in the existing `dimensions` object under:
 
 If a fraud engine returns `MANUAL_REVIEW` or `HIGH_RISK`, the existing lead validator returns a review outcome rather than accusing the claimant of fraud.
 
+Staff-facing `human_note` / `hubspot_note` translate `PASS` to “looks clean” and omit OSINT `UNKNOWN` finding soup. Machine JSON dimensions keep the original engine enums for API consumers.
+
 ## Optional OSINT identity lookups
 
 When `OSINT_IDENTITY_ENABLED=true`, the IDENTITY engine also runs `IDENTITY_OSINT_LOOKUP` (Holehe, PhoneInfoga, Mosint, h8mail) during the same `evaluateFraudRisk` call. When `COURTLISTENER_ENABLED=true`, the same lookup adds one free CourtListener REST v4 RECAP/docket search by person name. Observations are attached as `UNKNOWN` findings and as `dimensions.identity_osint`. They do not, by themselves, create `HIGH_RISK`. Missing token, rate-limit, or CourtListener errors are `UNAVAILABLE` and do not raise risk. EXTERNAL_VERIFICATION does **not** treat OSINT or public court-docket hits as authoritative issuer verification or as a criminal background check.

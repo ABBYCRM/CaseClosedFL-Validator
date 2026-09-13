@@ -1,0 +1,54 @@
+🚦 *VERDICT: 🟡 CAUTION — dig a little, not a fraud accusation*
+• Rule of thumb: human glance before attorney send
+
+👤 *Contact*
+• Name: Jane Doe
+• Email: j***@gmail.com
+• Phone: +***0100
+
+🔎 *OSINT identity*
+• What we noticed:
+  • Email shows up on public sites — normal for a real Gmail
+  • Phone looks like a US mobile
+  • Email recon looks ordinary (no DNS dump in this note)
+  • Email showed up in an old breach dataset (passwords not saved)
+  • No public federal court hits — not a criminal check; absence is not clearance
+• Public sites (Holehe): email shows up on public sites (instagram, twitter) — normal for a real Gmail.
+• Phone: looks like a US mobile.
+• Email recon (Mosint): looks like a normal Google/Gmail-looking address. We do not dump DNS, MX, NS, TXT, SOA, ASN, or IP lines into this note.
+• Old breach dataset (h8mail): email showed up in an old breach dataset. Passwords were NOT saved or written to HubSpot. This is a yellow flag by itself, not a red flag.
+• Court records (CourtListener): No public federal court hits. This is NOT a full criminal check. Absence does not mean clearance.
+• CourtListener disclaimer: This is a public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.
+• Why this is yellow (not a fraud accusation):
+  • Email showed up in an old breach dataset — dig a little, not a fraud accusation. Passwords were not saved to HubSpot. Yellow, not red by itself.
+• Staff note: Yellow means curiosity, not “you are a fraud.” Ask for missing fields. Human glance before attorney send.
+• Tools used: Holehe, PhoneInfoga, Mosint, h8mail (free public-record checks); CourtListener (free public federal/RECAP dockets only — not a criminal background check; we never buy PACER). Paid Hunter / HIBP / DeHashed / IntelX / Epieos are not used.
+
+⚠️ *CaseClosedFL Validation*
+Status: *INCOMPLETE* — still missing intake details. Expected at this stage, not a fail on the person
+
+📋 *Checks*
+• Incident: not confirmed yet
+• Fault: not confirmed yet
+• Overall fraud check: looks clean
+• Fraud checks:
+  • Document authenticity: looks clean
+  • Document tampering: looks clean
+  • Identity documents: looks clean
+  • Photo/video authenticity: looks clean
+  • Story vs documents: looks clean
+  • Documents match each other: looks clean
+  • Outside confirmation: looks clean
+
+❓ *Still needed*
+• Police report #, agency, or location — expected at intake, not a fail on the person
+
+➡️ *Next step:* Ask for the missing intake fields
+
+👀 *Staff actions*
+• Normal intake curiosity
+• Ask for the missing fields listed above
+• Missing police report # / agency / location is expected at intake, not a fail on the person
+• Human glance before attorney send (yellow — dig a little, not a fraud accusation)
+
+_Only observed evidence is treated as verified. Missing or not-found information is not treated as proof of falsity._

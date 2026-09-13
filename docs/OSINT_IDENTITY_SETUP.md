@@ -127,7 +127,7 @@ When enabled, `validateLead` → `evaluateFraudRisk` → `IDENTITY_OSINT_LOOKUP`
 1. Attach to the IDENTITY fraud dimension as `UNKNOWN` observations (they do not raise `HIGH_RISK` by themselves).
 2. EXTERNAL_VERIFICATION records that OSINT is **not** authoritative issuer verification.
 3. Appear in result `dimensions.identity_osint`.
-4. Render on `human_note` / `hubspot_note` as a **verdict-first** staff note: traffic-light verdict, contact, then OSINT identity. Internal capability IDs are not dumped onto the NOTE.
+4. Render on `human_note` / `hubspot_note` as a **verdict-first** staff note in plain English. The system **translates** findings. Capability IDs, Mosint DNS/MX/NS/TXT/IP dumps, and enum soup stay in machine JSON (`dimensions`) for API consumers and are not written onto the HubSpot NOTE.
 
 ## Staff verdict (evidence-only)
 
@@ -135,16 +135,16 @@ The note always leads with one of:
 
 | Verdict | When |
 | --- | --- |
-| 🟢 GOOD — looks fine to proceed | OSINT ran and signals are consistent/normal (public registrations expected, US mobile, no local breach hit, no stacked risk). Rule of thumb: proceed with normal intake. |
-| 🟡 CAUTION — review before sending out | Weak email footprint + VOIP/non-mobile, and/or a local breach hit / sparse recon, and/or an explicit criminal-docket **label** on a public CourtListener hit (alone or with other signals). Rule of thumb: dig first before attorney send / billable. |
-| 🔴 RED FLAG — hold / do not treat as clean | Stacked burner-style / no credible footprint + invalid or high-risk phone, or multiple existing fraud-rule signals, optionally combined with a clear criminal-docket label. Court hits never invent a red flag by themselves. Rule of thumb: hold until human clears. |
-| ⚪ INCOMPLETE — checks didn’t fully run | OSINT disabled, or a majority of CLI adapters UNAVAILABLE/timeout, or CourtListener-only mode with token/rate-limit/error. **Missing checks do NOT count as risk.** |
+| 🟢 GOOD — looks fine to proceed | OSINT ran and signals are consistent/normal (public-site hits expected for a real Gmail, US mobile, no old-breach-dataset hit, no stacked risk). Rule of thumb: proceed with normal intake. |
+| 🟡 CAUTION — dig a little, not a fraud accusation | Thin email footprint + VOIP/non-mobile, and/or an old-breach-dataset hit / sparse recon, and/or an explicit criminal-docket **label** on a public CourtListener hit. Rule of thumb: human glance before attorney send. Yellow is curiosity, not “you’re a fraud.” |
+| 🔴 RED FLAG — hold / do not treat as clean | Stacked thin footprint + invalid or high-risk phone, or multiple existing document/identity concerns, optionally combined with a clear criminal-docket label. Court hits never invent a red flag by themselves. Rule of thumb: hold until a human clears. |
+| ⚪ INCOMPLETE — checks didn’t fully run | OSINT disabled, or a majority of CLI adapters UNAVAILABLE/timeout, or CourtListener-only mode with token/rate-limit/error. **Missing checks do not count as risk.** |
 
 Observational OSINT does not invent fraud. Breach secrets stay redacted.
 
 ## HubSpot NOTE example
 
-Staff should see this shape (WhatsApp-style text; HubSpot stores the same lines as HTML `<p>`):
+Staff should see this shape (WhatsApp-style text; HubSpot stores the same lines as HTML `<p>`). Full live-style notes are checked in as `docs/sample_staff_notes_good.txt`, `docs/sample_staff_notes_caution.txt`, and `docs/sample_staff_notes_incomplete.txt`.
 
 ```text
 🚦 *VERDICT: 🟢 GOOD — looks fine to proceed*
@@ -152,37 +152,47 @@ Staff should see this shape (WhatsApp-style text; HubSpot stores the same lines 
 
 👤 *Contact*
 • Name: Jane Doe
-• Email: j***@example.com
+• Email: j***@gmail.com
 • Phone: +***0100
 
 🔎 *OSINT identity*
-• Status: RAN
-• Observational flags:
-  • Public registrations observed (expected)
-  • US mobile
-  • Email recon signals observed
-  • No local breach hit
-  • No public CourtListener docket hits — absence is not clearance
-• Holehe (email site registrations): OBSERVED for j***@example.com
-  • instagram: Holehe observed a public registration signal for instagram.
-  • twitter: Holehe observed a public registration signal for twitter.
-• PhoneInfoga (phone signals): OBSERVED for +***0100
-  • PhoneInfoga observed country=United States.
-  • PhoneInfoga observed line_type=mobile.
-• Mosint (email recon): OBSERVED for j***@example.com
-  • Mosint observed: related domain example.com.
-• h8mail (local/free breach): OBSERVED for j***@example.com
-  • h8mail reported no local/public-source hits. Absence of hits is not proof of authenticity.
-• CourtListener (public court records): OBSERVED for Jane Doe
-  • CourtListener RECAP search returned no public docket hits. This is a public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.
-• CourtListener disclaimer: Public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.
-• Staff note: Signals look consistent and normal. Public registrations are expected. Proceed with normal intake.
-• Tools: Holehe, PhoneInfoga, Mosint, h8mail (free OSS); CourtListener REST v4 (free public RECAP/dockets only — not a criminal background check; no PACER purchase); paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope
+• What we noticed:
+  • Email shows up on public sites — normal for a real Gmail
+  • Phone looks like a US mobile
+  • Email recon looks ordinary (no DNS dump in this note)
+  • No old-breach-dataset hit
+  • No public federal court hits — not a criminal check; absence is not clearance
+• Public sites (Holehe): email shows up on public sites (instagram, twitter) — normal for a real Gmail.
+• Phone: looks like a US mobile.
+• Email recon (Mosint): looks like a normal Google/Gmail-looking address. We do not dump DNS, MX, NS, TXT, SOA, ASN, or IP lines into this note.
+• Old breach dataset (h8mail): email did not show up in the old breach files we checked. Passwords were NOT saved or written to HubSpot. No hit is not proof the person is “clean.”
+• Court records (CourtListener): No public federal court hits. This is NOT a full criminal check. Absence does not mean clearance.
+• CourtListener disclaimer: This is a public court-records signal only — NOT a full criminal background check. Absence of hits is not clearance.
+• Staff note: Looks consistent and ordinary. Public-site hits are normal for a real Gmail. Proceed with normal intake curiosity.
+• Tools used: Holehe, PhoneInfoga, Mosint, h8mail (free public-record checks); CourtListener (free public federal/RECAP dockets only — not a criminal background check; we never buy PACER). Paid Hunter / HIBP / DeHashed / IntelX / Epieos are not used.
+
+⚠️ *CaseClosedFL Validation*
+Status: *INCOMPLETE* — still missing intake details. Expected at this stage, not a fail on the person.
+
+📋 *Checks*
+• Incident: not confirmed yet
+• Overall fraud check: looks clean
+• Fraud checks:
+  • Document authenticity: looks clean
+  • Identity documents: looks clean
+
+❓ *Still needed*
+• Police report #, agency, or location — expected at intake, not a fail on the person
+
+👀 *Staff actions*
+• Normal intake curiosity
+• Ask for the missing fields listed above
+• Missing police report # / agency / location is expected at intake, not a fail on the person
 ```
 
-🟡 CAUTION adds `Why caution:` (and uses “dig first before attorney send / billable”). 🔴 RED FLAG adds `Why red flag:` (hold until human clears). ⚪ INCOMPLETE is used when OSINT is disabled or most adapters did not finish — that is not treated as risk.
+🟡 CAUTION uses “dig a little, not a fraud accusation” and explains an old-breach-dataset hit as yellow, not red: passwords are never written to HubSpot. 🔴 RED FLAG is a hold. ⚪ INCOMPLETE is used when public-record checks did not finish — that is not treated as risk, and a missing police report is not a fail on the person.
 
-When `OSINT_IDENTITY_ENABLED=false`, the OSINT section says `DISABLED` and the staff verdict is ⚪ INCOMPLETE instead of inventing hits.
+When `OSINT_IDENTITY_ENABLED=false`, the OSINT section says the checks did not run and the staff verdict is ⚪ INCOMPLETE instead of inventing hits.
 
 ## Operator notes
 

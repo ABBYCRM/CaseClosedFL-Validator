@@ -181,32 +181,32 @@ export function observationalFlags(report?:OsintLookupReport|null){
     return flags;
   }
   if(s.holeheObserved){
-    if((s.registrations??0)>0) flags.push("Public registrations observed (expected)");
-    else flags.push("Weak email footprint (no public registrations)");
+    if((s.registrations??0)>0) flags.push("Email shows up on public sites — normal for a real Gmail");
+    else flags.push("Email did not show up on public sites we checked");
   }
   if(s.phoneObserved){
-    if(s.mobile&&s.us) flags.push("US mobile");
-    else if(s.mobile) flags.push("Mobile line");
-    else if(s.voip) flags.push("VOIP / non-mobile line");
-    else if(s.landline) flags.push("Landline / non-mobile");
-    else if(s.invalid) flags.push("Invalid or high-risk phone signal");
-    else flags.push("Phone metadata observed");
+    if(s.mobile&&s.us) flags.push("Phone looks like a US mobile");
+    else if(s.mobile) flags.push("Phone looks like a mobile");
+    else if(s.voip) flags.push("Phone looks like a VOIP / internet number");
+    else if(s.landline) flags.push("Phone looks like a landline");
+    else if(s.invalid) flags.push("Phone did not look valid — glance, not an accusation");
+    else flags.push("Phone details look ordinary");
   }
   if(s.mosintObserved){
-    if((s.recon??0)>0) flags.push("Email recon signals observed");
-    else flags.push("Sparse email recon");
+    if((s.recon??0)>0) flags.push("Email recon looks ordinary (no DNS dump in this note)");
+    else flags.push("Email recon was sparse — glance, not an accusation");
   }
   if(s.h8mailObserved){
-    flags.push(s.breach?"Local breach hit (secrets redacted)":"No local breach hit");
+    flags.push(s.breach?"Email showed up in an old breach dataset (passwords not saved)":"No old-breach-dataset hit");
   }
   if(s.courtObserved){
-    if(s.criminalDocket) flags.push("Public court docket with an explicit criminal label (not a background check)");
-    else if((s.courtHits??0)>0) flags.push("Public court-docket hit(s) observed (not a background check)");
-    else flags.push("No public CourtListener docket hits — absence is not clearance");
+    if(s.criminalDocket) flags.push("A public docket uses criminal-case wording — not a background check");
+    else if((s.courtHits??0)>0) flags.push("Public court-docket hit(s) — not a background check");
+    else flags.push("No public federal court hits — not a criminal check; absence is not clearance");
   }else if(s.courtUnavailable){
-    flags.push("CourtListener unavailable — missing check, not risk");
+    flags.push("Court records check did not finish — missing check, not risk");
   }
-  if(!flags.length) flags.push("No observational flags. Missing hits are UNKNOWN, not risk.");
+  if(!flags.length) flags.push("Nothing extra to flag. Missing hits are not risk.");
   return flags;
 }
 
@@ -215,25 +215,25 @@ function copyFor(level:StaffVerdictLevel){
     icon:"🟢",
     headline:"🟢 GOOD — looks fine to proceed",
     rule_of_thumb:"proceed with normal intake",
-    staff_note:"Signals look consistent and normal. Public registrations are expected. Proceed with normal intake."
+    staff_note:"Looks consistent and ordinary. Public-site hits are normal for a real Gmail. Proceed with normal intake curiosity."
   };
   if(level==="CAUTION") return{
     icon:"🟡",
-    headline:"🟡 CAUTION — review before sending out",
-    rule_of_thumb:"dig first before attorney send / billable",
-    staff_note:"Dig first before attorney send / billable. Observational OSINT is not a fraud accusation."
+    headline:"🟡 CAUTION — dig a little, not a fraud accusation",
+    rule_of_thumb:"human glance before attorney send",
+    staff_note:"Yellow means curiosity, not “you are a fraud.” Ask for missing fields. Human glance before attorney send."
   };
   if(level==="RED_FLAG") return{
     icon:"🔴",
     headline:"🔴 RED FLAG — hold / do not treat as clean",
-    rule_of_thumb:"hold until human clears",
-    staff_note:"Hold until a human clears this. Stacked patterns or existing fraud-rule signals — observational OSINT alone is not a fraud accusation."
+    rule_of_thumb:"hold until a human clears this",
+    staff_note:"Hold until a human clears this. Stacked patterns or an existing document/identity concern — public-record checks alone are not a fraud accusation."
   };
   return{
     icon:"⚪",
     headline:"⚪ INCOMPLETE — checks didn’t fully run",
-    rule_of_thumb:"missing checks do NOT count as risk",
-    staff_note:"Checks didn’t fully run. Missing, disabled, or timed-out tools do NOT count as risk."
+    rule_of_thumb:"missing checks do not count as risk",
+    staff_note:"Checks didn’t fully run. Missing, turned-off, or timed-out tools do not count as risk and are not a fail on the person."
   };
 }
 
@@ -246,23 +246,23 @@ export function scoreStaffVerdict(input:StaffVerdictInput={}):StaffVerdict{
   const reasons:string[]=[];
 
   if(fraud.highRisk){
-    if(fraud.overall==="HIGH_RISK") reasons.push("Existing fraud dimension is HIGH_RISK — hold until human clears");
-    for(const engine of fraud.high) reasons.push(`Fraud engine ${prettyEngine(engine)} is HIGH_RISK`);
+    if(fraud.overall==="HIGH_RISK") reasons.push("A document/identity check already says hold — not a clean pass");
+    for(const engine of fraud.high) reasons.push(`${prettyEngine(engine)} raised a real concern — hold until a human clears`);
   }
   if(fraud.stackedFraud){
-    reasons.push("Multiple fraud-rule signals require a human hold");
+    reasons.push("More than one document/identity check needs a human hold");
   }
 
   if(s.noCredibleFootprint&&(s.invalid||s.highRiskPhone||s.voip||s.burnerLexicon)){
-    reasons.push("Burner-style / no credible footprint plus invalid or high-risk phone");
+    reasons.push("Thin public footprint plus a phone that does not look like a normal mobile");
   }
   if(s.noCredibleFootprint&&s.breach&&(s.voip||s.invalid||s.highRiskPhone)){
-    reasons.push("No credible footprint, local breach hit, and high-risk phone stacked");
+    reasons.push("Thin public footprint, old-breach-dataset hit, and a high-risk phone stacked together");
   }
 
-  const stackedOsint=reasons.some(r=>/burner-style|no credible footprint, local breach/i.test(r));
+  const stackedOsint=reasons.some(r=>/thin public footprint/i.test(r));
   if(s.criminalDocket&&(stackedOsint||fraud.highRisk||fraud.stackedFraud)){
-    reasons.push("Clear criminal-looking public docket label combined with other risk signals — hold. Not a background check.");
+    reasons.push("A public docket uses criminal-case wording plus other concerns — hold. This is not a background check.");
   }
   if(fraud.highRisk||fraud.stackedFraud||stackedOsint){
     const copy=copyFor("RED_FLAG");
@@ -270,34 +270,34 @@ export function scoreStaffVerdict(input:StaffVerdictInput={}):StaffVerdict{
   }
 
   if(incomplete){
-    if(!report) reasons.push("OSINT report was not attached");
-    else if(!report.enabled) reasons.push("OSINT identity lookups were disabled");
+    if(!report) reasons.push("Public-record checks were not attached. Missing checks do not count as risk.");
+    else if(!report.enabled) reasons.push("Public-record checks were turned off. Missing checks do not count as risk.");
     else if(!identityCliAdapters(report).length&&s.courtUnavailable){
-      reasons.push("CourtListener was unavailable, rate-limited, or missing a token — missing check, not risk");
-    }else reasons.push("Majority of OSINT adapters were unavailable, skipped, or timed out");
+      reasons.push("Court records check did not finish (token, rate limit, or outage). Missing check, not risk.");
+    }else reasons.push("Most public-record checks did not finish. Missing checks do not count as risk.");
     const copy=copyFor("INCOMPLETE");
     return {...copy,level:"INCOMPLETE",reasons,observational_flags:flags,staff_note:copy.staff_note};
   }
 
   if(s.criminalDocket){
-    reasons.push("Public docket with an explicit criminal label — dig first. This is not a criminal background check.");
+    reasons.push("A public docket uses criminal-case wording — dig a little. This is not a criminal background check.");
   }
   if((s.courtHits??0)>0&&!s.criminalDocket&&(s.breach||s.weakEmailFootprint||s.voip||fraud.review.length>0)){
-    reasons.push("Public court-docket hit plus other observational signals — dig first. Not a background check.");
+    reasons.push("A public court-docket hit plus other ordinary signals — dig a little. Not a background check.");
   }
-  if(s.breach) reasons.push("Local breach hit — dig first");
+  if(s.breach) reasons.push("Email showed up in an old breach dataset — dig a little, not a fraud accusation. Passwords were not saved to HubSpot. Yellow, not red by itself.");
   if(s.weakEmailFootprint&&(s.voip||!s.mobile&&s.phoneObserved)){
-    reasons.push("Weak email footprint plus VOIP / non-mobile line");
+    reasons.push("Thin email footprint plus a VOIP / non-mobile phone — dig a little, not a fraud accusation.");
   }
   if(s.weakEmailFootprint&&s.sparseRecon){
-    reasons.push("Weak email footprint and sparse recon");
+    reasons.push("Thin email footprint and sparse email recon — dig a little, not a fraud accusation.");
   }
-  if(s.voip&&!s.weakEmailFootprint) reasons.push("VOIP / non-mobile line");
+  if(s.voip&&!s.weakEmailFootprint) reasons.push("Phone looks like a VOIP / internet number — dig a little, not a fraud accusation.");
   if(s.sparseRecon&&s.weakEmailFootprint===false&&(s.registrations??0)===0){
-    reasons.push("Sparse recon");
+    reasons.push("Email recon was sparse — dig a little, not a fraud accusation.");
   }
   if(fraud.review.length===1&&!fraud.highRisk){
-    reasons.push(`Fraud engine ${prettyEngine(fraud.review[0]!)} asked for manual review — dig first`);
+    reasons.push(`${prettyEngine(fraud.review[0]!)} needs a human look — dig a little, not a fraud accusation.`);
   }
 
   if(reasons.length){
@@ -313,7 +313,16 @@ export function scoreStaffVerdict(input:StaffVerdictInput={}):StaffVerdict{
 }
 
 function prettyEngine(name:string){
-  return name.replaceAll("_"," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  const labels:Record<string,string>={
+    DOCUMENT_AUTHENTICITY:"Document authenticity",
+    DOCUMENT_TAMPERING:"Document tampering",
+    IDENTITY:"Identity documents",
+    SYNTHETIC_MEDIA:"Photo/video authenticity",
+    CLAIM_CONSISTENCY:"Story vs documents",
+    CROSS_DOCUMENT:"Documents match each other",
+    EXTERNAL_VERIFICATION:"Outside confirmation"
+  };
+  return labels[name]??name.replaceAll("_"," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
 }
 
 export function formatStaffVerdictLines(verdict:StaffVerdict):string[]{

@@ -227,7 +227,7 @@ describe("CourtListener staff verdict + notes",()=>{
     expect(osintChecksIncomplete(osint)).toBe(false);
     const v=scoreStaffVerdict({osint});
     expect(v.level).toBe("GOOD");
-    expect(v.observational_flags).toEqual(expect.arrayContaining(["CourtListener unavailable — missing check, not risk"]));
+    expect(v.observational_flags).toEqual(expect.arrayContaining(["Court records check did not finish — missing check, not risk"]));
   });
 
   it("keeps civil docket hits observational — not CAUTION by themselves",()=>{
@@ -258,7 +258,7 @@ describe("CourtListener staff verdict + notes",()=>{
     });
     const caution=scoreStaffVerdict({osint:report({adapters:[...goodCli,court]})});
     expect(caution.level).toBe("CAUTION");
-    expect(caution.reasons.join(" ")).toMatch(/criminal label/i);
+    expect(caution.reasons.join(" ")).toMatch(/criminal-case wording/i);
 
     const stacked=[
       adapter({provider:"holehe",capability:"EMAIL_REGISTRATION",target_type:"email",findings:[]}),
@@ -275,7 +275,7 @@ describe("CourtListener staff verdict + notes",()=>{
     ];
     const red=scoreStaffVerdict({osint:report({adapters:stacked})});
     expect(red.level).toBe("RED_FLAG");
-    expect(red.reasons.join(" ")).toMatch(/criminal-looking public docket/i);
+    expect(red.reasons.join(" ")).toMatch(/criminal-case wording/i);
   });
 
   it("puts the background-check disclaimer on HubSpot / human notes",()=>{
@@ -288,10 +288,11 @@ describe("CourtListener staff verdict + notes",()=>{
       ]
     });
     const lines=formatOsintNoteLines(osint).join("\n");
-    expect(lines).toContain("CourtListener (public court records)");
+    expect(lines).toContain("Court records (CourtListener)");
+    expect(lines).toContain("No public federal court hits");
     expect(lines).toContain(COURTLISTENER_DISCLAIMER);
     expect(lines).toContain("NOT a full criminal background check");
-    expect(lines).toContain("no PACER purchase");
+    expect(lines).toMatch(/never buy PACER|no PACER purchase/i);
     const note=buildOutcome({
       status:"INCOMPLETE",
       reason:"FAULT_NOT_ESTABLISHED",
