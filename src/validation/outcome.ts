@@ -1,13 +1,15 @@
 import crypto from "node:crypto";
 import { env } from "../config/env.js";
 import { toHubSpotNoteHtml } from "../integrations/hubspot/notes.js";
-import { formatOsintNoteLines, isOsintDimensionKey } from "../integrations/osint/note.js";
+import { formatStaffNotePreamble, isOsintDimensionKey } from "../integrations/osint/note.js";
 import type { OsintLookupReport } from "../integrations/osint/types.js";
+import type { StaffContact } from "../integrations/osint/verdict.js";
 import type { FinalStatus, IncompleteReason } from "./schema.js";
 
 export interface OutcomeInput{
   status:FinalStatus; reason?:IncompleteReason|string; missing:string[]; evidence:any[];
   dimensions:Record<string,unknown>; contradictions?:string[]; nextAction?:string;
+  contact?:StaffContact;
 }
 
 function statusIcon(status:FinalStatus){
@@ -82,8 +84,15 @@ export function formatDimensionLines(key:string,value:unknown):string[]{
   }
   return [`• ${label}: ${pretty(value)}`];
 }
+function osintFromDimensions(dimensions:Record<string,unknown>){
+  return (dimensions.identity_osint??dimensions.osint_identity??dimensions.IDENTITY_OSINT_LOOKUP) as OsintLookupReport|undefined;
+}
+
 function humanNote(i:OutcomeInput, verified:string[]){
-  const lines:string[]=[];
+  const osint=osintFromDimensions(i.dimensions);
+  const preamble=formatStaffNotePreamble(osint,i.contact,i.dimensions);
+  const lines:string[]=[...preamble.lines,""];
+
   lines.push(`${statusIcon(i.status)} *CaseClosedFL Validation*`);
   lines.push(`Status: *${i.status}*${i.reason?` — ${pretty(i.reason)}`:""}`);
   lines.push("");
@@ -92,12 +101,6 @@ function humanNote(i:OutcomeInput, verified:string[]){
   if(dimensionEntries.length){
     lines.push("📋 *Checks*");
     for(const [k,v] of dimensionEntries) lines.push(...formatDimensionLines(k,v));
-    lines.push("");
-  }
-
-  const osint=i.dimensions.identity_osint??i.dimensions.osint_identity??i.dimensions.IDENTITY_OSINT_LOOKUP;
-  if(osint!==undefined||env.OSINT_IDENTITY_ENABLED){
-    lines.push(...formatOsintNoteLines(osint as OsintLookupReport|undefined));
     lines.push("");
   }
 
@@ -130,11 +133,19 @@ function humanNote(i:OutcomeInput, verified:string[]){
 
 export function buildOutcome(i:OutcomeInput){
   const verified=[...new Set(i.evidence.filter(e=>e.epistemic_state==="KNOWN"||e.epistemic_state==="INFERRED").map(e=>e.claim))] as string[];
+  const osint=osintFromDimensions(i.dimensions);
+  const staff_verdict=formatStaffNotePreamble(osint,i.contact,i.dimensions).verdict;
   const note=humanNote(i,verified);
   const body={
     status:i.status, reason:i.reason??null, dimensions:i.dimensions, missing:i.missing,
     contradictions:i.contradictions??[], next_action:i.nextAction??null,
     evidence:i.evidence,
+    staff_verdict:{
+      level:staff_verdict.level,
+      headline:staff_verdict.headline,
+      rule_of_thumb:staff_verdict.rule_of_thumb,
+      reasons:staff_verdict.reasons
+    },
     human_note:note,
     hubspot_note:toHubSpotNoteHtml(note),
     agent_note:{

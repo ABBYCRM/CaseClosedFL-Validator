@@ -113,45 +113,58 @@ When enabled, `validateLead` → `evaluateFraudRisk` → `IDENTITY_OSINT_LOOKUP`
 1. Attach to the IDENTITY fraud dimension as `UNKNOWN` observations (they do not raise `HIGH_RISK` by themselves).
 2. EXTERNAL_VERIFICATION records that OSINT is **not** authoritative issuer verification.
 3. Appear in result `dimensions.identity_osint`.
-4. Render in full on `human_note` / `hubspot_note` so HubSpot staff see the same detail.
+4. Render on `human_note` / `hubspot_note` as a **verdict-first** staff note: traffic-light verdict, contact, then OSINT identity. Internal capability IDs are not dumped onto the NOTE.
+
+## Staff verdict (evidence-only)
+
+The note always leads with one of:
+
+| Verdict | When |
+| --- | --- |
+| 🟢 GOOD — looks fine to proceed | OSINT ran and signals are consistent/normal (public registrations expected, US mobile, no local breach hit, no stacked risk). Rule of thumb: proceed with normal intake. |
+| 🟡 CAUTION — review before sending out | Weak email footprint + VOIP/non-mobile, and/or a local breach hit / sparse recon. Rule of thumb: dig first before attorney send / billable. |
+| 🔴 RED FLAG — hold / do not treat as clean | Stacked burner-style / no credible footprint + invalid or high-risk phone, or multiple existing fraud-rule signals. Rule of thumb: hold until human clears. |
+| ⚪ INCOMPLETE — checks didn’t fully run | OSINT disabled, or a majority of adapters UNAVAILABLE/timeout. **Missing checks do NOT count as risk.** |
+
+Observational OSINT does not invent fraud. Breach secrets stay redacted.
 
 ## HubSpot NOTE example
 
-Staff should see a dedicated OSINT block like this (WhatsApp-style text; HubSpot stores the same lines as HTML `<p>`):
+Staff should see this shape (WhatsApp-style text; HubSpot stores the same lines as HTML `<p>`):
 
 ```text
-🔎 *OSINT identity*
-• Status: RAN — capability IDENTITY_OSINT_LOOKUP
+🚦 *VERDICT: 🟢 GOOD — looks fine to proceed*
+• Rule of thumb: proceed with normal intake
+
+👤 *Contact*
+• Name: Jane Doe
 • Email: j***@example.com
 • Phone: +***0100
-• Observational risk flags (not a fraud verdict):
-  • HOLEHE_PUBLIC_REGISTRATIONS_OBSERVED
-  • PHONEINFOGA_METADATA_OBSERVED
-  • MOSINT_RECON_SIGNALS_OBSERVED
-  • H8MAIL_LOCAL_BREACH_HIT_OBSERVED
+
+🔎 *OSINT identity*
+• Status: RAN
+• Observational flags:
+  • Public registrations observed (expected)
+  • US mobile
+  • Email recon signals observed
+  • No local breach hit
 • Holehe (email site registrations): OBSERVED for j***@example.com
-  • Checks performed: HOLEHE_EMAIL_SITE_REGISTRATION
-  • EMAIL_SITE_REGISTRATION [instagram]: Holehe observed a public registration signal for instagram.
-  • EMAIL_SITE_REGISTRATION [twitter]: Holehe observed a public registration signal for twitter.
+  • instagram: Holehe observed a public registration signal for instagram.
+  • twitter: Holehe observed a public registration signal for twitter.
 • PhoneInfoga (phone signals): OBSERVED for +***0100
-  • Checks performed: PHONEINFOGA_LOCAL_SCAN
-  • PHONE_METADATA: PhoneInfoga observed country=United States.
-  • PHONE_METADATA: PhoneInfoga observed line_type=mobile.
+  • PhoneInfoga observed country=United States.
+  • PhoneInfoga observed line_type=mobile.
 • Mosint (email recon): OBSERVED for j***@example.com
-  • Checks performed: MOSINT_EMAIL_RECON
-  • EMAIL_RECON_SIGNAL: Mosint observed: related domain example.com.
+  • Mosint observed: related domain example.com.
 • h8mail (local/free breach): OBSERVED for j***@example.com
-  • Checks performed: H8MAIL_LOCAL_BREACH_FILE
-  • LOCAL_BREACH_HIT: h8mail reported 2 local/public-source hit(s). Secrets were redacted.
-• Unavailable / skipped checks:
-  • (none in this example)
-• Adapter errors (soft-fail; validation continues):
-  • (none in this example)
-• Contract: evidence-only. UNKNOWN/UNAVAILABLE is not fraud. The validator never contacts claimants.
-• Paid APIs (Hunter, HIBP, DeHashed, IntelX, Epieos) are out of scope for this path.
+  • h8mail reported no local/public-source hits. Absence of hits is not proof of authenticity.
+• Staff note: Signals look consistent and normal. Public registrations are expected. Proceed with normal intake.
+• Tools: Holehe, PhoneInfoga, Mosint, h8mail (free OSS only; paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope)
 ```
 
-When `OSINT_IDENTITY_ENABLED=false`, the same section says `DISABLED` / UNKNOWN instead of inventing hits.
+🟡 CAUTION adds `Why caution:` (and uses “dig first before attorney send / billable”). 🔴 RED FLAG adds `Why red flag:` (hold until human clears). ⚪ INCOMPLETE is used when OSINT is disabled or most adapters did not finish — that is not treated as risk.
+
+When `OSINT_IDENTITY_ENABLED=false`, the OSINT section says `DISABLED` and the staff verdict is ⚪ INCOMPLETE instead of inventing hits.
 
 ## Operator notes
 

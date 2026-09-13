@@ -1,5 +1,9 @@
 export {lookupIdentityOsint,type OsintLookupDeps} from "./lookup.js";
-export {formatOsintNoteLines,isOsintDimensionKey} from "./note.js";
+export {formatOsintNoteLines,formatStaffNotePreamble,isOsintDimensionKey} from "./note.js";
+export {
+  formatContactLines,formatStaffVerdictLines,osintChecksIncomplete,osintSignals,scoreStaffVerdict,
+  staffContactFromFields,staffContactFromLead,type StaffContact,type StaffVerdict,type StaffVerdictLevel
+} from "./verdict.js";
 export {osintConfigFrom,type OsintConfig} from "./config.js";
 export {emptyOsintReport,OSINT_CONTRACT,OSINT_PROVIDERS,type OsintAdapterResult,type OsintFinding,type OsintLookupReport,type OsintProvider} from "./types.js";
 export {leadEmail,leadPhone} from "./targets.js";

@@ -69,14 +69,28 @@ const observed:OsintLookupReport={
   contract:OSINT_CONTRACT
 };
 
-describe("HubSpot / human notes include full OSINT detail",()=>{
-  it("lists every adapter, finding, flag, unavailable check, and error",()=>{
+const good:OsintLookupReport={
+  ...observed,
+  adapters:observed.adapters.map(a=>a.provider==="h8mail"?{
+    ...a,
+    errors:[],
+    findings:[{kind:"LOCAL_BREACH_NONE",observation:"h8mail reported no local/public-source hits. Absence of hits is not proof of authenticity.",signal:"NONE"}]
+  }:a),
+  risk_flags:observed.risk_flags.filter(f=>f!=="H8MAIL_LOCAL_BREACH_HIT_OBSERVED"),
+  unavailable:[],
+  errors:[]
+};
+
+describe("HubSpot / human notes use verdict-first staff format",()=>{
+  it("renders a scannable OSINT block without internal capability IDs",()=>{
     const lines=formatOsintNoteLines(observed).join("\n");
     expect(lines).toContain("🔎 *OSINT identity*");
-    expect(lines).toContain("IDENTITY_OSINT_LOOKUP");
-    expect(lines).toContain("j***@example.com");
-    expect(lines).toContain("+***0100");
-    expect(lines).toContain("HOLEHE_PUBLIC_REGISTRATIONS_OBSERVED");
+    expect(lines).toContain("• Status: RAN");
+    expect(lines).not.toContain("IDENTITY_OSINT_LOOKUP");
+    expect(lines).not.toContain("HOLEHE_PUBLIC_REGISTRATIONS_OBSERVED");
+    expect(lines).toContain("Public registrations observed (expected)");
+    expect(lines).toContain("US mobile");
+    expect(lines).toContain("Local breach hit (secrets redacted)");
     expect(lines).toContain("Holehe (email site registrations)");
     expect(lines).toContain("instagram");
     expect(lines).toContain("twitter");
@@ -87,38 +101,66 @@ describe("HubSpot / human notes include full OSINT detail",()=>{
     expect(lines).toContain("related domain example.com");
     expect(lines).toContain("h8mail (local/free breach)");
     expect(lines).toContain("2 local/public-source hit(s)");
+    expect(lines).toContain("Why caution:");
+    expect(lines).toContain("Staff note:");
+    expect(lines).toContain("Tools: Holehe, PhoneInfoga, Mosint, h8mail");
     expect(lines).toContain("PHONEINFOGA:example-only-when-missing");
     expect(lines).toContain("h8mail:H8MAIL_NONZERO_EXIT_1");
-    expect(lines).toContain("Paid APIs (Hunter, HIBP, DeHashed, IntelX, Epieos) are out of scope");
+    expect(lines).toContain("paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope");
     expect(lines).not.toMatch(/hunter2|password/i);
   });
-  it("copies the full OSINT block into human_note and hubspot_note",()=>{
+
+  it("leads human_note and hubspot_note with the approved verdict + contact + OSINT blocks",()=>{
     const x=buildOutcome({
       status:"INCOMPLETE",
       reason:"FAULT_NOT_ESTABLISHED",
       missing:["Police report or fault evidence"],
       evidence:[],
-      dimensions:{incident:"UNKNOWN",identity_osint:observed}
+      dimensions:{incident:"UNKNOWN",identity_osint:good},
+      contact:{name:"Jane Doe",email_redacted:"j***@example.com",phone_redacted:"+***0100"}
     });
+    expect(x.staff_verdict.level).toBe("GOOD");
+    expect(x.human_note.startsWith("🚦 *VERDICT: 🟢 GOOD — looks fine to proceed*")).toBe(true);
+    expect(x.human_note).toContain("• Rule of thumb: proceed with normal intake");
+    expect(x.human_note).toContain("👤 *Contact*");
+    expect(x.human_note).toContain("• Name: Jane Doe");
+    expect(x.human_note).toContain("• Email: j***@example.com");
+    expect(x.human_note).toContain("• Phone: +***0100");
     expect(x.human_note).toContain("🔎 *OSINT identity*");
     expect(x.human_note).toContain("Holehe observed a public registration signal for instagram.");
     expect(x.human_note).toContain("PhoneInfoga observed country=United States.");
     expect(x.human_note).toContain("Mosint observed: related domain example.com.");
-    expect(x.human_note).toContain("h8mail reported 2 local/public-source hit(s).");
-    expect(x.human_note).toContain("H8MAIL_LOCAL_BREACH_HIT_OBSERVED");
-    expect(x.human_note).toContain("PHONEINFOGA:example-only-when-missing");
-    expect(x.human_note).toContain("never contacts claimants");
+    expect(x.human_note).toContain("h8mail reported no local/public-source hits");
+    expect(x.human_note).toContain("⚠️ *CaseClosedFL Validation*");
+    expect(x.human_note).toContain("📋 *Checks*");
+    expect(x.human_note).not.toContain("IDENTITY_OSINT_LOOKUP");
+    expect(x.hubspot_note).toContain("<strong>VERDICT: 🟢 GOOD — looks fine to proceed</strong>");
+    expect(x.hubspot_note).toContain("<strong>Contact</strong>");
     expect(x.hubspot_note).toContain("<strong>OSINT identity</strong>");
     expect(x.hubspot_note).toContain("instagram");
-    expect(x.hubspot_note).toContain("United States");
-    expect(x.hubspot_note).toContain("related domain example.com");
-    expect(x.hubspot_note).toContain("2 local/public-source hit(s)");
-    expect(x.hubspot_note).toContain("H8MAIL_NONZERO_EXIT_1");
-    expect(htmlToText(x.hubspot_note)).toContain("OSINT identity");
-    expect(htmlToText(x.hubspot_note)).toContain("Paid APIs (Hunter, HIBP, DeHashed, IntelX, Epieos) are out of scope");
+    expect(htmlToText(x.hubspot_note)).toContain("VERDICT: 🟢 GOOD — looks fine to proceed");
+    expect(htmlToText(x.hubspot_note)).toContain("paid Hunter / HIBP / DeHashed / IntelX / Epieos are out of scope");
     expect(x.agent_note.text).toBe(x.human_note);
   });
-  it("states DISABLED / UNKNOWN when OSINT did not run",()=>{
+
+  it("uses CAUTION copy when a local breach hit is observed",()=>{
+    const x=buildOutcome({
+      status:"INCOMPLETE",
+      reason:"FAULT_NOT_ESTABLISHED",
+      missing:["Police report or fault evidence"],
+      evidence:[],
+      dimensions:{identity_osint:observed}
+    });
+    expect(x.staff_verdict.level).toBe("CAUTION");
+    expect(x.human_note).toContain("🚦 *VERDICT: 🟡 CAUTION — review before sending out*");
+    expect(x.human_note).toContain("• Rule of thumb: dig first before attorney send / billable");
+    expect(x.human_note).toContain("• Why caution:");
+    expect(x.human_note).toContain("Local breach hit");
+    expect(x.human_note).toContain("2 local/public-source hit(s)");
+    expect(x.human_note).toContain("H8MAIL_NONZERO_EXIT_1");
+  });
+
+  it("states DISABLED / INCOMPLETE when OSINT did not run",()=>{
     const lines=formatOsintNoteLines({
       capability:"IDENTITY_OSINT_LOOKUP",
       enabled:false,
@@ -130,6 +172,7 @@ describe("HubSpot / human notes include full OSINT detail",()=>{
       contract:OSINT_CONTRACT
     }).join("\n");
     expect(lines).toContain("DISABLED");
-    expect(lines).toContain("UNKNOWN is not a fraud accusation");
+    expect(lines).toContain("missing checks do NOT count as risk");
+    expect(lines).not.toContain("IDENTITY_OSINT_LOOKUP");
   });
 });

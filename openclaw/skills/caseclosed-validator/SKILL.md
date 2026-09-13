@@ -20,7 +20,7 @@ Use this skill only when a trusted upstream system supplies a completed `CaseClo
 
 The validator emits `hubspot_note`, `human_note`, and `agent_note.text`. Prefer those fields verbatim when sending a note downstream.
 
-`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects; fraud parallel engines and findings are `name: result` lines. Preserve the full `🔎 OSINT identity` section (Holehe, PhoneInfoga, Mosint, h8mail, unavailable checks, errors) verbatim — do not summarize away observed OSINT lines.
+`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects; fraud parallel engines and findings are `name: result` lines. Preserve the verdict-first layout verbatim: `🚦 VERDICT`, `👤 Contact`, `🔎 OSINT identity` (Holehe, PhoneInfoga, Mosint, h8mail, Why caution / Why red flag, staff note, tools), then the existing qualification / fraud sections. Do not dump internal capability IDs.
 
 Style must be easy to read on a phone, like a WhatsApp message:
 - short lines;
@@ -36,6 +36,17 @@ Style must be easy to read on a phone, like a WhatsApp message:
 Expected shape:
 
 ```text
+🚦 *VERDICT: 🟢 GOOD — looks fine to proceed*
+• Rule of thumb: proceed with normal intake
+
+👤 *Contact*
+• Name: Jane Doe
+• Email: j***@example.com
+• Phone: +***0100
+
+🔎 *OSINT identity*
+• Status: RAN
+
 ✅ *CaseClosedFL Validation*
 Status: *VALIDATED*
 
