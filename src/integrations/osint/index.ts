@@ -1,6 +1,10 @@
 export {lookupIdentityOsint,type OsintLookupDeps} from "./lookup.js";
 export {formatOsintNoteLines,formatStaffNotePreamble,isOsintDimensionKey} from "./note.js";
 export {
+  formatStaffOsintAdapterLines,isRawInfrastructureDump,isInternalToken,STAFF_BREACH_SECRETS,
+  STAFF_COURT_DISCLAIMER,STAFF_MOSINT_NO_DNS,STAFF_TOOLS_LINE
+} from "./plain-english.js";
+export {
   formatContactLines,formatStaffVerdictLines,osintChecksIncomplete,osintSignals,scoreStaffVerdict,
   staffContactFromFields,staffContactFromLead,type StaffContact,type StaffVerdict,type StaffVerdictLevel
 } from "./verdict.js";

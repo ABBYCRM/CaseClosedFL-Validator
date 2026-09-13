@@ -107,10 +107,13 @@ Official-source screenshots captured during the validation run (ScreenshotOne + 
 
 ## OSINT identity block on the validation NOTE
 
-`human_note` / `hubspot_note` always lead with a staff traffic-light verdict, then contact, then **OSINT identity**, then the existing qualification / fraud check sections. Staff should not see a raw dump of internal capability IDs.
+`human_note` / `hubspot_note` always lead with a staff traffic-light verdict, then contact, then **OSINT identity**, then qualification / fraud check sections, then **staff actions**. The note **translates** findings into staff English. Machine JSON `dimensions` may still carry capability IDs and engine enums for API consumers.
 
-- 🟢 GOOD / 🟡 CAUTION / 🔴 RED FLAG / ⚪ INCOMPLETE (missing checks do **not** count as risk)
+- 🟢 GOOD / 🟡 CAUTION (dig a little, not a fraud accusation) / 🔴 RED FLAG / ⚪ INCOMPLETE (missing checks do **not** count as risk)
 - Contact: name, masked email, masked phone
-- OSINT: status, observational flags, Holehe / PhoneInfoga / Mosint / h8mail / CourtListener, Why caution or Why red flag when applicable, staff note, tools list
+- OSINT: Holehe = public-site hits (normal for a real Gmail); Mosint = ordinary Google/Gmail-looking address (never dump DNS/MX/NS/TXT/IP); h8mail = old-breach-dataset hit as yellow, passwords never written to HubSpot; CourtListener = not a criminal check; absence ≠ clearance
+- Qualification: INCOMPLETE because a police report # / agency / location is missing is **expected**, not a fail on the person
+- Fraud engines: PASS renders as “looks clean”
+- Staff actions: normal intake curiosity, ask for missing fields, human glance before attorney send if yellow
 
-If OSINT is disabled or a majority of CLIs are missing/timed out, the verdict is ⚪ INCOMPLETE. CourtListener token/rate-limit/errors are `UNAVAILABLE` and do **not** count as risk. Public court-docket hits are evidence only — not a criminal background check; absence of hits is not clearance. Paid OSINT APIs and paid PACER fetches are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md`.
+If OSINT is disabled or a majority of CLIs are missing/timed out, the verdict is ⚪ INCOMPLETE. CourtListener token/rate-limit/errors are `UNAVAILABLE` and do **not** count as risk. Public court-docket hits are evidence only — not a criminal background check; absence of hits is not clearance. Paid OSINT APIs and paid PACER fetches are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md` and `docs/sample_staff_notes_*.txt`.

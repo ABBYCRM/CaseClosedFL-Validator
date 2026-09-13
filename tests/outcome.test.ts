@@ -61,13 +61,14 @@ describe("outcome",()=>{
         ]
       }
     });
-    expect(x.human_note).toMatch(/Fraud Parallel Engines:[\s\S]*Document Authenticity: Pass/);
-    expect(x.human_note).toContain("Identity: High Risk");
-    expect(x.human_note).toContain("Identity — Barcode Visible Data Mismatch: Fail");
+    expect(x.human_note).toMatch(/Fraud checks:[\s\S]*Document authenticity: looks clean/);
+    expect(x.human_note).toContain("Identity documents: hold — a real concern came up");
+    expect(x.human_note).toContain("printed ID and barcode data do not match");
+    expect(x.human_note).not.toContain("Identity — Barcode Visible Data Mismatch");
     expect(x.human_note).not.toMatch(/\[object Object\]/i);
     expect(x.hubspot_note).not.toMatch(/\[object Object\]/i);
-    expect(x.hubspot_note).toContain("Document Authenticity: Pass");
+    expect(x.hubspot_note).toContain("Document authenticity: looks clean");
     expect(x.hubspot_note).toContain("<p>");
-    expect(htmlToText(x.hubspot_note)).toContain("Document Authenticity: Pass");
+    expect(htmlToText(x.hubspot_note)).toContain("Document authenticity: looks clean");
   });
 });

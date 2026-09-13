@@ -1,0 +1,43 @@
+🚦 *VERDICT: ⚪ INCOMPLETE — checks didn’t fully run*
+• Rule of thumb: missing checks do not count as risk
+
+👤 *Contact*
+• Name: Jane Doe
+• Email: j***@gmail.com
+• Phone: +***0100
+
+🔎 *OSINT identity*
+• These public-record checks did not run. Missing checks do not count as risk.
+• Why this is incomplete (not a fail on the person):
+  • Public-record checks were turned off. Missing checks do not count as risk.
+• Staff note: Checks didn’t fully run. Missing, turned-off, or timed-out tools do not count as risk and are not a fail on the person.
+• Tools used: Holehe, PhoneInfoga, Mosint, h8mail (free public-record checks); CourtListener (free public federal/RECAP dockets only — not a criminal background check; we never buy PACER). Paid Hunter / HIBP / DeHashed / IntelX / Epieos are not used.
+
+⚠️ *CaseClosedFL Validation*
+Status: *INCOMPLETE* — still missing intake details. Expected at this stage, not a fail on the person
+
+📋 *Checks*
+• Incident: not confirmed yet
+• Fault: not confirmed yet
+• Overall fraud check: looks clean
+• Fraud checks:
+  • Document authenticity: looks clean
+  • Document tampering: looks clean
+  • Identity documents: looks clean
+  • Photo/video authenticity: looks clean
+  • Story vs documents: looks clean
+  • Documents match each other: looks clean
+  • Outside confirmation: looks clean
+
+❓ *Still needed*
+• Police report #, agency, or location — expected at intake, not a fail on the person
+
+➡️ *Next step:* Ask for the missing intake fields
+
+👀 *Staff actions*
+• Normal intake curiosity
+• Ask for the missing fields listed above
+• Missing police report # / agency / location is expected at intake, not a fail on the person
+• Missing public-record checks do not count as risk
+
+_Only observed evidence is treated as verified. Missing or not-found information is not treated as proof of falsity._

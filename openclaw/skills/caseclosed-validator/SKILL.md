@@ -20,7 +20,7 @@ Use this skill only when a trusted upstream system supplies a completed `CaseClo
 
 The validator emits `hubspot_note`, `human_note`, and `agent_note.text`. Prefer those fields verbatim when sending a note downstream.
 
-`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects; fraud parallel engines and findings are `name: result` lines. Preserve the verdict-first layout verbatim: `🚦 VERDICT`, `👤 Contact`, `🔎 OSINT identity` (Holehe, PhoneInfoga, Mosint, h8mail, Why caution / Why red flag, staff note, tools), then the existing qualification / fraud sections. Do not dump internal capability IDs.
+`human_note` and `agent_note.text` stay WhatsApp-style plain text. `hubspot_note` is the same content as HubSpot-safe HTML for `NOTE.hs_note_body` (`*bold*` → `<strong>`, one field per `<p>` line, blank `<p>` between sections, user text escaped). Do not stringify nested objects. Prefer the validator’s staff-English lines verbatim: fraud engines that passed say “looks clean”; OSINT is translated (public-site hits, ordinary Gmail, old-breach-dataset yellow flag, no court-records dump). Preserve the verdict-first layout: `🚦 VERDICT`, `👤 Contact`, `🔎 OSINT identity`, qualification / fraud sections, then `👀 Staff actions`. Never dump capability IDs, Mosint DNS/MX/NS/TXT/IP, or lines like “Identity — Osint Mosint Email Recon Signal: Unknown.”
 
 Style must be easy to read on a phone, like a WhatsApp message:
 - short lines;
@@ -45,20 +45,22 @@ Expected shape:
 • Phone: +***0100
 
 🔎 *OSINT identity*
-• Status: RAN
+• Public sites (Holehe): email shows up on public sites — normal for a real Gmail.
 
 ✅ *CaseClosedFL Validation*
-Status: *VALIDATED*
+Status: *VALIDATED* — intake rules and observed evidence support proceeding.
 
 📋 *Checks*
-• Incident: Validated
-• Fault: Supports Not At Fault
+• Incident: confirmed from observed evidence
+• Fault: documents support the client was not primarily at fault
+• Overall fraud check: looks clean
 
 ✅ *Verified / supported*
-• Incident Identifier Match
-• Supports Not At Fault
+• Police report number matches intake
+• Documents support the client was not primarily at fault
 
-➡️ *Next step:* None
+👀 *Staff actions*
+• Normal intake curiosity
 
 _Only observed evidence is treated as verified. Missing or not-found information is not treated as proof of falsity._
 ```
@@ -67,16 +69,22 @@ For incomplete results:
 
 ```text
 ⚠️ *CaseClosedFL Validation*
-Status: *INCOMPLETE* — Fault Not Established
+Status: *INCOMPLETE* — we do not yet have evidence of who was at fault. Expected until a police report is in, not a fail on the person.
 
 📋 *Checks*
-• Incident: Document Corroborated
-• Fault: Undetermined
+• Incident: supported by a document we have — not yet an official-record pull
+• Fault: not established yet
+• Overall fraud check: looks clean
 
 ❓ *Still needed*
-• Police report or other evidence supporting the client's non-primary-fault position
+• Police report #, agency, or location — expected at intake, not a fail on the person
 
-➡️ *Next step:* Request Fault Supporting Police Report
+➡️ *Next step:* Ask for a police report that speaks to who was at fault
+
+👀 *Staff actions*
+• Normal intake curiosity
+• Ask for the missing fields listed above
+• Missing police report # / agency / location is expected at intake, not a fail on the person
 
 _Only observed evidence is treated as verified. Missing or not-found information is not treated as proof of falsity._
 ```

@@ -54,7 +54,7 @@ describe("staff OSINT verdict scoring",()=>{
     expect(v.level).toBe("INCOMPLETE");
     expect(v.headline).toContain("INCOMPLETE");
     expect(v.rule_of_thumb).toMatch(/missing checks do NOT count as risk/i);
-    expect(v.reasons.some(r=>/disabled/i.test(r))).toBe(true);
+    expect(v.reasons.some(r=>/turned off/i.test(r))).toBe(true);
   });
 
   it("is INCOMPLETE when a majority of adapters are unavailable or timed out",()=>{
@@ -70,7 +70,7 @@ describe("staff OSINT verdict scoring",()=>{
     expect(osintChecksIncomplete(osint)).toBe(true);
     const v=scoreStaffVerdict({osint});
     expect(v.level).toBe("INCOMPLETE");
-    expect(v.reasons.join(" ")).toMatch(/unavailable|timed out/i);
+    expect(v.reasons.join(" ")).toMatch(/did not finish/i);
   });
 
   it("is GOOD when OSINT ran and signals are consistent/normal",()=>{
@@ -79,9 +79,9 @@ describe("staff OSINT verdict scoring",()=>{
     expect(v.headline).toBe("🟢 GOOD — looks fine to proceed");
     expect(v.rule_of_thumb).toBe("proceed with normal intake");
     expect(v.observational_flags).toEqual(expect.arrayContaining([
-      "Public registrations observed (expected)",
-      "US mobile",
-      "No local breach hit"
+      "Email shows up on public sites — normal for a real Gmail",
+      "Phone looks like a US mobile",
+      "No old-breach-dataset hit"
     ]));
   });
 
@@ -109,7 +109,7 @@ describe("staff OSINT verdict scoring",()=>{
     ];
     const caution=scoreStaffVerdict({osint:report({adapters:weakVoip})});
     expect(caution.level).toBe("CAUTION");
-    expect(caution.rule_of_thumb).toMatch(/dig first/i);
+    expect(caution.rule_of_thumb).toMatch(/human glance before attorney send/i);
   });
 
   it("is RED FLAG only for stacked burner-style patterns or existing fraud HIGH_RISK",()=>{
@@ -131,14 +131,14 @@ describe("staff OSINT verdict scoring",()=>{
     const red=scoreStaffVerdict({osint:report({adapters:stacked})});
     expect(red.level).toBe("RED_FLAG");
     expect(red.headline).toContain("hold / do not treat as clean");
-    expect(red.reasons.join(" ")).toMatch(/burner-style|no credible footprint/i);
+    expect(red.reasons.join(" ")).toMatch(/thin public footprint/i);
 
     const mapped=scoreStaffVerdict({
       osint:report({adapters:goodAdapters}),
       dimensions:{fraud_overall:"HIGH_RISK",fraud_parallel_engines:{IDENTITY:{verdict:"HIGH_RISK"}}}
     });
     expect(mapped.level).toBe("RED_FLAG");
-    expect(mapped.reasons.join(" ")).toMatch(/HIGH_RISK/);
+    expect(mapped.reasons.join(" ")).toMatch(/hold until a human clears|real concern/i);
   });
 
   it("does not treat unavailable adapters as a red flag",()=>{
