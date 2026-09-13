@@ -23,10 +23,16 @@ describe("outcome",()=>{
       dimensions:{incident:"DOCUMENT_CORROBORATED",fault:"UNDETERMINED"},
       nextAction:"REQUEST_FAULT_SUPPORTING_POLICE_REPORT"
     });
+    expect(x.human_note).toContain("🚦 *VERDICT:");
+    expect(x.human_note).toContain("👤 *Contact*");
+    expect(x.human_note).toContain("🔎 *OSINT identity*");
     expect(x.human_note).toContain("⚠️ *CaseClosedFL Validation*");
     expect(x.human_note).toContain("📋 *Checks*");
     expect(x.human_note).toContain("❓ *Still needed*");
     expect(x.human_note).not.toContain("{\"");
+    expect(x.hubspot_note).toContain("<strong>VERDICT:");
+    expect(x.hubspot_note).toContain("<strong>Contact</strong>");
+    expect(x.hubspot_note).toContain("<strong>OSINT identity</strong>");
     expect(x.hubspot_note).toContain("<strong>CaseClosedFL Validation</strong>");
     expect(x.hubspot_note).toContain("<strong>Checks</strong>");
     expect(x.hubspot_note).toContain("<strong>Still needed</strong>");

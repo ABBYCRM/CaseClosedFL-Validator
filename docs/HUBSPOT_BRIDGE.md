@@ -33,7 +33,7 @@ HubSpot CRM notes (read-only)
         -> validator runtime (skipped when this intake fingerprint already has validation_id)
         -> evidence + deterministic outcome
         -> optional IDENTITY_OSINT_LOOKUP (when OSINT_IDENTITY_ENABLED=true)
-        -> HubSpot-safe HTML `hubspot_note` including the full OSINT identity block
+        -> HubSpot-safe HTML `hubspot_note` (verdict first, then contact + OSINT identity)
         -> HubSpot NOTE create (only write; official-source screenshots attached when present)
 ```
 
@@ -106,14 +106,10 @@ Official-source screenshots captured during the validation run (ScreenshotOne + 
 
 ## OSINT identity block on the validation NOTE
 
-When validation runs with `OSINT_IDENTITY_ENABLED=true`, `human_note` / `hubspot_note` include a dedicated **OSINT identity** section so staff do not need another UI. The block lists:
+`human_note` / `hubspot_note` always lead with a staff traffic-light verdict, then contact, then **OSINT identity**, then the existing qualification / fraud check sections. Staff should not see a raw dump of internal capability IDs.
 
-- redacted email and phone
-- Holehe site registration observations
-- PhoneInfoga phone metadata
-- Mosint recon signals
-- h8mail local/free-source results (secrets redacted)
-- observational risk flags (not a fraud verdict)
-- unavailable / skipped checks and adapter errors
+- 🟢 GOOD / 🟡 CAUTION / 🔴 RED FLAG / ⚪ INCOMPLETE (missing checks do **not** count as risk)
+- Contact: name, masked email, masked phone
+- OSINT: status, observational flags, Holehe / PhoneInfoga / Mosint / h8mail, Why caution or Why red flag when applicable, staff note, tools list
 
-If OSINT is disabled or a CLI is missing, the same section still appears as `DISABLED` / `UNAVAILABLE` / `UNKNOWN`. Absence of hits is not fraud. Paid OSINT APIs are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md`.
+If OSINT is disabled or a majority of CLIs are missing/timed out, the verdict is ⚪ INCOMPLETE. Absence of hits is not fraud. Paid OSINT APIs are out of scope. Example text is in `docs/OSINT_IDENTITY_SETUP.md`.

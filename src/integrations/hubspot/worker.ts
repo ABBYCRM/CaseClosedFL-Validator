@@ -2,6 +2,7 @@ import { env, resolveHubSpotSyncMode } from "../../config/env.js";
 import { q } from "../../db/index.js";
 import { startValidation } from "../../agent/controller.js";
 import { buildOutcome } from "../../validation/outcome.js";
+import { staffContactFromFields } from "../osint/verdict.js";
 import {
   createContactNoteWithScreenshots, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
   listForms, readContacts, readNotes, searchNotesSince, type HubSpotCrmContact, type HubSpotCrmNote,
@@ -188,7 +189,13 @@ async function processCrmIntake(contact:HubSpotCrmContact,contactNotes:HubSpotCr
           missing:parsed.missing,
           evidence:[],
           dimensions:{incident:"UNKNOWN",fault:"UNKNOWN"},
-          nextAction:"REQUEST_MISSING_INTAKE_FIELDS"
+          nextAction:"REQUEST_MISSING_INTAKE_FIELDS",
+          contact:staffContactFromFields({
+            first_name:contact.firstName,
+            last_name:contact.lastName,
+            email:contact.email,
+            phone:contact.phone
+          })
         });
       }
       if(result.validation_id){

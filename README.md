@@ -115,7 +115,7 @@ COURT_SEARCH
 PROVIDER_SEARCH
 ```
 
-Optional free OSINT identity lookups (`IDENTITY_OSINT_LOOKUP`) run **inside** the existing validation/fraud path when `OSINT_IDENTITY_ENABLED=true`: Holehe (email registrations), PhoneInfoga (phone), Mosint (email recon), and h8mail (local/free breach). The production `Dockerfile` (DigitalOcean App Platform) bakes those four CLIs onto `PATH`; missing or failing CLIs still soft-fail as `UNAVAILABLE`. Paid APIs (Hunter, HIBP, DeHashed, IntelX, Epieos) are out of scope. Full adapter output is copied onto the HubSpot validation NOTE. See `docs/OSINT_IDENTITY_SETUP.md`.
+Optional free OSINT identity lookups (`IDENTITY_OSINT_LOOKUP`) run **inside** the existing validation/fraud path when `OSINT_IDENTITY_ENABLED=true`: Holehe (email registrations), PhoneInfoga (phone), Mosint (email recon), and h8mail (local/free breach). The production `Dockerfile` (DigitalOcean App Platform) bakes those four CLIs onto `PATH`; missing or failing CLIs still soft-fail as `UNAVAILABLE`. Paid APIs (Hunter, HIBP, DeHashed, IntelX, Epieos) are out of scope. HubSpot notes lead with a staff verdict (🟢 GOOD / 🟡 CAUTION / 🔴 RED FLAG / ⚪ INCOMPLETE) plus contact and OSINT blocks — missing tools are never treated as risk. See `docs/OSINT_IDENTITY_SETUP.md`.
 
 Denied by policy include messaging, email, CRM writes, purchases, payments, deletion, shell/workbench execution and unrelated write actions. The router adapts generic validation inputs only to parameters exposed by the selected tool schema, and tries at most three materially different safe tools for one capability.
 

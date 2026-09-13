@@ -36,6 +36,9 @@ describe("CRM note classification",()=>{
   it("does not treat WhatsApp-style validation notes as intake",()=>{
     expect(classifyNote("⚠️ *CaseClosedFL Validation*\nStatus: *INCOMPLETE*\n\nValidation ID: abc")).toBe("validation");
   });
+  it("treats verdict-first staff notes as validation",()=>{
+    expect(classifyNote("🚦 *VERDICT: 🟢 GOOD — looks fine to proceed*\n• Rule of thumb: proceed with normal intake\n\nValidation ID: abc")).toBe("validation");
+  });
   it("does not treat HubSpot HTML validation notes as intake",()=>{
     expect(classifyNote("<p>⚠️ <strong>CaseClosedFL Validation</strong></p><p>Status: <strong>INCOMPLETE</strong></p><p></p><p>Validation ID: abc</p>")).toBe("validation");
   });

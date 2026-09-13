@@ -27,7 +27,7 @@ export type NotesParseResult=
   |{ok:false; missing:string[]; fingerprint:string};
 
 const INTAKE_HEADER=/caseclosedfl\s+qualified\s+personal\s+injury\s+intake/i;
-const VALIDATION_MARK=/caseclosedfl validation|validation id\s*:/i;
+const VALIDATION_MARK=/caseclosedfl validation|validation id\s*:|verdict:\s*[🟢🟡🔴⚪]|🚦/i;
 const SUPPLEMENTAL_HINT=/caseclosedfl/i;
 const SECTION_HEADERS=new Set(["incident_narrative","incident_narratives","narrative","additional_details","additional_notes","notes"]);
 
