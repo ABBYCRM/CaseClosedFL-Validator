@@ -7,7 +7,7 @@ const OSINT_KIND=/EMAIL_RECON_SIGNAL|EMAIL_SITE_REGISTRATION|PHONE_METADATA|LOCA
 const ENGINE_LABEL:Record<string,string>={
   DOCUMENT_AUTHENTICITY:"Document authenticity",
   DOCUMENT_TAMPERING:"Document tampering",
-  IDENTITY:"Identity documents",
+  IDENTITY:"Identity & contact checks",
   SYNTHETIC_MEDIA:"Photo/video authenticity",
   CLAIM_CONSISTENCY:"Story vs documents",
   CROSS_DOCUMENT:"Documents match each other",
@@ -15,7 +15,8 @@ const ENGINE_LABEL:Record<string,string>={
 };
 
 const VERDICT_LABEL:Record<string,string>={
-  PASS:"looks clean",
+  NOT_RUN:"NOT RUN (no documents to check)",
+  PASS:"passed",
   PASS_WITH_WARNINGS:"looks mostly clean — glance at the notes",
   MANUAL_REVIEW:"needs a human look",
   HIGH_RISK:"hold — a real concern came up",

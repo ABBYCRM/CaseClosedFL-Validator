@@ -14,6 +14,7 @@ export interface HubSpotContactRecord {
   state?:string;
   zip?:string;
   city?:string;
+  emailBounceReason?:string;
 }
 
 export interface NotesToLeadInput {
@@ -204,6 +205,7 @@ export function notesToLead(input:NotesToLeadInput):NotesParseResult{
         email,
         phone:present(input.contact.phone),
         zip,
+        hs_email_hard_bounce_reason_enum:present(input.contact.emailBounceReason),
         intake_note_id:input.intake.id,
         supplemental_note_id:newest?.id,
         intake_timestamp:input.intake.timestampMs,

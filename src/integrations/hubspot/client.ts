@@ -158,9 +158,10 @@ export interface HubSpotCrmContact {
   state?:string;
   zip?:string;
   city?:string;
+  emailBounceReason?:string;
 }
 
-const CONTACT_PROPS=["email","firstname","lastname","phone","mobilephone","state","hs_state_code","zip","city"];
+const CONTACT_PROPS=["email","firstname","lastname","phone","mobilephone","state","hs_state_code","zip","city","hs_email_hard_bounce_reason_enum"];
 
 function noteTimestampMs(props:any){
   const raw=props?.hs_timestamp??props?.hs_lastmodifieddate??props?.hs_createdate;
@@ -189,7 +190,8 @@ function asContact(row:any):HubSpotCrmContact|undefined{
     phone:p.phone||p.mobilephone||undefined,
     state:p.hs_state_code||p.state||undefined,
     zip:p.zip||undefined,
-    city:p.city||undefined
+    city:p.city||undefined,
+    emailBounceReason:p.hs_email_hard_bounce_reason_enum||undefined
   };
 }
 

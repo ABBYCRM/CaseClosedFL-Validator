@@ -8,6 +8,7 @@ import { CLAIMS } from "../evidence/claims.js";
 import { checkIncidentSource,checkRegistry } from "./source-check.js";
 import { extractFaultFromDocuments,relevantDocumentText } from "./document.js";
 import { buildOutcome, type OutcomeInput } from "./outcome.js";
+import { assessLeadQuality, bounceFromMetadata } from "./lead-quality.js";
 import { staffContactFromLead } from "../integrations/osint/verdict.js";
 import { audit } from "../audit/log.js";
 import { env } from "../config/env.js";
@@ -15,7 +16,14 @@ import {evaluateFraudRisk,fraudDimensions,fraudRequiresManualReview} from "./fra
 function ageDays(date?:string){if(!date)return null;const t=Date.parse(date);if(Number.isNaN(t))return null;return Math.floor((Date.now()-t)/86400000);}function pendingWindow(lead:Lead,pack:any){const age=ageDays(lead.incident.date);if(age===null||age<0)return false;if(lead.state==="FL")return age<=Number(pack.timing?.crash_report_max_submission_days??10);if(lead.state==="NY")return age<=Number(pack.timing?.paper_police_report_days??30);return age<=7;}function mvaFaultClaimSupportsProceeding(lead:Lead){return lead.qualification.primary_fault==="OTHER_PARTY"||lead.qualification.primary_fault==="NOT_SURE"||lead.qualification.primary_fault==="SHARED"||lead.qualification.client_claims_not_at_fault===true;}
 export async function validateLead(validationId:string,lead:Lead,state:SelfState){
 const fraudPromise=evaluateFraudRisk(lead);
-const out=(i:OutcomeInput)=>buildOutcome({...i,contact:i.contact??staffContactFromLead(lead)});
+const hsMeta=((lead.metadata as any)?.hubspot??{}) as Record<string,any>;
+const quality=assessLeadQuality({
+  name:[lead.client.first_name,lead.client.last_name].filter(Boolean).join(" "),
+  phone:lead.client.phone??hsMeta.phone,email:lead.client.email??hsMeta.email,state:lead.state,zip:hsMeta.zip,
+  narrative:[hsMeta.narrative,(lead as any).incident?.description].filter(Boolean).join("\n"),
+  ...bounceFromMetadata(lead.metadata),documentCount:lead.documents.length
+});
+const out=(i:OutcomeInput)=>buildOutcome({...i,quality:i.quality??quality,contact:i.contact??staffContactFromLead(lead)});
 state.cycle++;advance(state,"NORMALIZED");const pack=loadJurisdiction(lead.state),skill=loadCaseType(lead.case_type);if(!pack||!skill)return out({status:"INCOMPLETE",reason:"MISSING_INFORMATION",missing:["Unsupported jurisdiction or case type"],evidence:[],dimensions:{fraud:await fraudPromise}});advance(state,"CLASSIFIED");state.knownFacts.push({key:"state",value:lead.state,state:"KNOWN"},{key:"case_type",value:lead.case_type,state:"KNOWN"});
 const missing=missingRequirements(lead);advance(state,"REQUIREMENTS_CHECKED");if(missing.length){state.unknowns.push(...missing);const fraud=await fraudPromise;return out({status:"INCOMPLETE",reason:"MISSING_INFORMATION",missing,evidence:[],dimensions:{incident:"UNKNOWN",fault:"UNKNOWN",...fraudDimensions(fraud)},nextAction:"REQUEST_MISSING_INTAKE_FIELDS"});}const hardStop=intakeHardStop(lead);if(hardStop){const fraud=await fraudPromise;return out({status:"CONTRADICTED",reason:hardStop,missing:[],evidence:[],dimensions:{intake_rule:hardStop,...fraudDimensions(fraud)},contradictions:[hardStop]});}
 for(const d of relevantDocumentText(lead))await addEvidence(validationId,{claim:CLAIMS.DOCUMENT_PRESENT,epistemicState:"KNOWN",sourceId:d.name,sourceType:"CLIENT_DOCUMENT",payload:{name:d.name,type:d.type,source:d.source,text_length:d.text.length}});
