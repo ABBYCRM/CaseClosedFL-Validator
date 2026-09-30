@@ -6,6 +6,7 @@ import { env,assertProductionSafety } from "./config/env.js";
 import { routes } from "./api/routes.js";
 import { pool } from "./db/index.js";
 import { startHubSpotWorker } from "./integrations/hubspot/worker.js";
+import { prefetchOfacList } from "./validation/enrichment.js";
 
 assertProductionSafety();
 const app=Fastify({logger:{level:env.NODE_ENV==="production"?"info":"debug"},bodyLimit:2_000_000,requestTimeout:60_000});
@@ -17,3 +18,4 @@ const stopHubSpot=startHubSpotWorker((obj,msg)=>app.log.info(obj,msg));
 const stop=async()=>{stopHubSpot();await app.close();await pool.end();process.exit(0);};
 process.on("SIGTERM",stop);process.on("SIGINT",stop);
 await app.listen({port:env.PORT,host:"0.0.0.0"});
+if(process.env.ENRICHMENT_ENABLED!=="false") prefetchOfacList().catch(e=>app.log.warn({err:String(e?.message??e)},"OFAC SDN prefetch failed"));

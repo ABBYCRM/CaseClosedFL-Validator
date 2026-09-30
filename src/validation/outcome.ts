@@ -5,6 +5,7 @@ import { formatOsintFactLines, isOsintDimensionKey } from "../integrations/osint
 import { formatContactLines, type StaffVerdict } from "../integrations/osint/verdict.js";
 import { finalVerdict, fraudValueForVerdict, markEnginesNotRun, VERDICT_HEADLINE, type FinalVerdict, type LeadQuality } from "./lead-quality.js";
 import type { OsintLookupReport } from "../integrations/osint/types.js";
+import { formatEnrichmentLines, type EnrichmentReport } from "./enrichment.js";
 import type { StaffContact } from "../integrations/osint/verdict.js";
 import type { FinalStatus, IncompleteReason } from "./schema.js";
 import {
@@ -26,6 +27,7 @@ export interface OutcomeInput{
   dimensions:Record<string,unknown>; contradictions?:string[]; nextAction?:string;
   contact?:StaffContact;
   quality?:LeadQuality;
+  enrichment?:EnrichmentReport;
 }
 
 function statusIcon(status:FinalStatus){
@@ -120,7 +122,8 @@ function humanNote(i:OutcomeInput, verified:string[], fv:FinalVerdict){
     ...formatContactLines(i.contact,osint),
     "",
     ...formatOsintFactLines(osint),
-    ""
+    "",
+    ...(i.enrichment?[...formatEnrichmentLines(i.enrichment),""]:[])
   ];
 
   lines.push(`${statusIcon(i.status)} *CaseClosedFL Validation*`);
@@ -177,6 +180,7 @@ export function buildOutcome(input:OutcomeInput){
     verdict:fv.verdict,
     verdict_reasons:fv.reasons,
     verdict_codes:fv.codes,
+    enrichment:i.enrichment??null,
     staff_verdict:{
       verdict:fv.verdict,
       level:legacyStaffVerdict(fv).level,
