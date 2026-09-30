@@ -64,9 +64,11 @@ describe("IDENTITY_OSINT_LOOKUP",()=>{
     expect(report.risk_flags).toEqual(expect.arrayContaining([
       "HOLEHE_PUBLIC_REGISTRATIONS_OBSERVED",
       "PHONEINFOGA_METADATA_OBSERVED",
-      "MOSINT_RECON_SIGNALS_OBSERVED",
-      "H8MAIL_LOCAL_BREACH_HIT_OBSERVED"
+      "MOSINT_RECON_SIGNALS_OBSERVED"
     ]));
+    // No breach source configured -> h8mail is NOT RUN, never a hit.
+    expect(report.risk_flags).not.toContain("H8MAIL_LOCAL_BREACH_HIT_OBSERVED");
+    expect(report.adapters.find(a=>a.provider==="h8mail")?.unavailable_reason).toBe("NO_BREACH_SOURCE_CONFIGURED");
     const fraud=await runParallelFraudEngines(lead(),report);
     const identity=fraud.verdicts.find(v=>v.engine==="IDENTITY");
     const external=fraud.verdicts.find(v=>v.engine==="EXTERNAL_VERIFICATION");

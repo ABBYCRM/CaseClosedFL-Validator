@@ -4,6 +4,7 @@ import {redactEmail} from "../redact.js";
 import type {OsintAdapterResult,OsintFinding} from "../types.js";
 
 const SITE_RE=/^\[\+\]\s*(?:email used(?: on)?[:\s]+)?([A-Za-z0-9._-]+)/i;
+const LEGEND_RE=/email used\s*,|email not used|rate limit/i;
 const USED_RE=/\[\+\].*(used|found|exists|registered)/i;
 
 export function parseHoleheOutput(stdout:string):OsintFinding[]{
@@ -12,10 +13,12 @@ export function parseHoleheOutput(stdout:string):OsintFinding[]{
   for(const raw of stdout.split("\n")){
     const line=raw.trim();
     if(!line.startsWith("[+]")) continue;
+    // Holehe always prints a legend: "[+] Email used, [-] Email not used, [x] Rate limit" — not a site hit.
+    if(LEGEND_RE.test(line)) continue;
     const siteMatch=line.match(SITE_RE);
     const site=(siteMatch?.[1]??line.replace(/^\[\+\]\s*/,"")).replace(/[:.].*$/,"").trim();
     const key=site.toLowerCase();
-    if(!key||seen.has(key)) continue;
+    if(!key||key==="email"||seen.has(key)) continue;
     if(!USED_RE.test(line)&&!siteMatch) continue;
     seen.add(key);
     findings.push({

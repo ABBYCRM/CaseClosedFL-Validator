@@ -38,7 +38,7 @@ describe("OSINT parsers",()=>{
     expect(JSON.stringify(findings)).not.toMatch(/SuperSecretHash999/);
   });
   it("parses h8mail hit counts and redacts credential pairs",()=>{
-    const findings=parseH8mailOutput("Found 2 results\nlead@example.com:hunter2\n");
+    const findings=parseH8mailOutput("lead@example.com | Breach Found (2 elements)\nlead@example.com:hunter2\n");
     expect(findings.some(f=>f.kind==="LOCAL_BREACH_HIT")).toBe(true);
     expect(findings.some(f=>/2/.test(f.observation))).toBe(true);
     expect(JSON.stringify(findings)).not.toMatch(/hunter2/);
