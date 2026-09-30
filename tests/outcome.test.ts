@@ -25,14 +25,14 @@ describe("outcome",()=>{
     });
     expect(x.human_note).toContain("🚦 *VERDICT:");
     expect(x.human_note).toContain("👤 *Contact*");
-    expect(x.human_note).toContain("🔎 *OSINT identity*");
+    expect(x.human_note).toContain("🔎 *Public-record checks*");
     expect(x.human_note).toContain("⚠️ *CaseClosedFL Validation*");
     expect(x.human_note).toContain("📋 *Checks*");
     expect(x.human_note).toContain("❓ *Still needed*");
     expect(x.human_note).not.toContain("{\"");
     expect(x.hubspot_note).toContain("<strong>VERDICT:");
     expect(x.hubspot_note).toContain("<strong>Contact</strong>");
-    expect(x.hubspot_note).toContain("<strong>OSINT identity</strong>");
+    expect(x.hubspot_note).toContain("<strong>Public-record checks</strong>");
     expect(x.hubspot_note).toContain("<strong>CaseClosedFL Validation</strong>");
     expect(x.hubspot_note).toContain("<strong>Checks</strong>");
     expect(x.hubspot_note).toContain("<strong>Still needed</strong>");
@@ -61,14 +61,14 @@ describe("outcome",()=>{
         ]
       }
     });
-    expect(x.human_note).toMatch(/Fraud checks:[\s\S]*Document authenticity: looks clean/);
-    expect(x.human_note).toContain("Identity documents: hold — a real concern came up");
+    expect(x.human_note).toMatch(/Fraud checks:[\s\S]*Document authenticity: passed/);
+    expect(x.human_note).toContain("Identity & contact checks: hold — a real concern came up");
     expect(x.human_note).toContain("printed ID and barcode data do not match");
     expect(x.human_note).not.toContain("Identity — Barcode Visible Data Mismatch");
     expect(x.human_note).not.toMatch(/\[object Object\]/i);
     expect(x.hubspot_note).not.toMatch(/\[object Object\]/i);
-    expect(x.hubspot_note).toContain("Document authenticity: looks clean");
+    expect(x.hubspot_note).toContain("Document authenticity: passed");
     expect(x.hubspot_note).toContain("<p>");
-    expect(htmlToText(x.hubspot_note)).toContain("Document authenticity: looks clean");
+    expect(htmlToText(x.hubspot_note)).toContain("Document authenticity: passed");
   });
 });

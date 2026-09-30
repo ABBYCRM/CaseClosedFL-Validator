@@ -14,7 +14,7 @@ describe("staff-English translators",()=>{
   });
 
   it("translates fraud PASS and missing police-report fields",()=>{
-    expect(staffVerdictWord("PASS")).toBe("looks clean");
+    expect(staffVerdictWord("PASS")).toBe("passed");
     expect(staffEngineName("DOCUMENT_AUTHENTICITY")).toBe("Document authenticity");
     expect(staffMissingItem("one of incident.report_number, incident.case_number, incident.agency, or incident.location"))
       .toMatch(/expected at intake, not a fail on the person/i);

@@ -115,7 +115,7 @@ async function syncFormsOnce(){
 
 function toNoteRecord(n:HubSpotCrmNote):HubSpotNoteRecord{return{id:n.id,body:n.body,timestampMs:n.timestampMs};}
 function toContactRecord(c:HubSpotCrmContact):HubSpotContactRecord{
-  return{id:c.id,email:c.email,firstName:c.firstName,lastName:c.lastName,phone:c.phone,state:c.state,zip:c.zip,city:c.city};
+  return{id:c.id,email:c.email,firstName:c.firstName,lastName:c.lastName,phone:c.phone,state:c.state,zip:c.zip,city:c.city,emailBounceReason:c.emailBounceReason};
 }
 
 async function crmLookbackSince(){

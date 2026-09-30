@@ -136,19 +136,18 @@ describe("HubSpot / human notes use plain-English staff language",()=>{
       },
       contact:{name:"Jane Doe",email_redacted:"j***@gmail.com",phone_redacted:"+***0100"}
     });
-    expect(x.staff_verdict.level).toBe("GOOD");
-    expect(x.human_note.startsWith("🚦 *VERDICT: 🟢 GOOD — looks fine to proceed*")).toBe(true);
-    expect(x.human_note).toContain("• Rule of thumb: proceed with normal intake");
+    expect(x.verdict).toBe("NEEDS_REVIEW");
+    expect(x.human_note.startsWith("🚦 *VERDICT: 🟡 NEEDS REVIEW*")).toBe(true);
     expect(x.human_note).toContain("👤 *Contact*");
     expect(x.human_note).toContain("• Name: Jane Doe");
     expect(x.human_note).toContain("• Email: j***@gmail.com");
     expect(x.human_note).toContain("• Phone: +***0100");
-    expect(x.human_note).toContain("🔎 *OSINT identity*");
-    expect(x.human_note).toContain("email shows up on public sites");
-    expect(x.human_note).toContain("normal Google/Gmail-looking address");
+    expect(x.human_note).toContain("🔎 *Public-record checks*");
+    expect(x.human_note).toContain("Public sites (Holehe):");
+    expect(x.human_note).not.toMatch(/normal for a real|looks ordinary|Gmail-looking/);
     expect(x.human_note).toContain("Police report #, agency, or location — expected at intake, not a fail on the person");
-    expect(x.human_note).toContain("Document authenticity: looks clean");
-    expect(x.human_note).toContain("Overall fraud check: looks clean");
+    expect(x.human_note).toContain("Document authenticity: passed");
+    expect(x.human_note).toContain("Overall fraud check: passed");
     expect(x.human_note).toContain("👀 *Staff actions*");
     expect(x.human_note).toContain("Normal intake curiosity");
     expect(x.human_note).toContain("⚠️ *CaseClosedFL Validation*");
@@ -156,18 +155,18 @@ describe("HubSpot / human notes use plain-English staff language",()=>{
     expect(x.human_note).not.toMatch(JARGON);
     expect(x.human_note).not.toMatch(DNS_DUMP);
     expect(x.human_note).not.toContain("Identity — Osint Mosint Email Recon Signal: Unknown");
-    expect(x.hubspot_note).toContain("<strong>VERDICT: 🟢 GOOD — looks fine to proceed</strong>");
+    expect(x.hubspot_note).toContain("<strong>VERDICT: 🟡 NEEDS REVIEW</strong>");
     expect(x.hubspot_note).toContain("<strong>Contact</strong>");
-    expect(x.hubspot_note).toContain("<strong>OSINT identity</strong>");
+    expect(x.hubspot_note).toContain("<strong>Public-record checks</strong>");
     expect(x.hubspot_note).toContain("instagram");
-    expect(htmlToText(x.hubspot_note)).toContain("VERDICT: 🟢 GOOD — looks fine to proceed");
+    expect(htmlToText(x.hubspot_note)).toContain("VERDICT: 🟡 NEEDS REVIEW");
     expect(htmlToText(x.hubspot_note)).toContain("expected at intake, not a fail on the person");
     expect(x.agent_note.text).toBe(x.human_note);
     expect(x.dimensions.identity_osint).toEqual(good);
     expect((x.dimensions.identity_osint as OsintLookupReport).capability).toBe("IDENTITY_OSINT_LOOKUP");
   });
 
-  it("uses CAUTION copy when an old-breach-dataset hit is observed",()=>{
+  it("does not print breach/public-site boilerplate; verdict comes from intake completeness",()=>{
     const x=buildOutcome({
       status:"INCOMPLETE",
       reason:"MISSING_INFORMATION",
@@ -176,16 +175,12 @@ describe("HubSpot / human notes use plain-English staff language",()=>{
       dimensions:{identity_osint:observed}
     });
     expect(x.staff_verdict.level).toBe("CAUTION");
-    expect(x.human_note).toContain("🚦 *VERDICT: 🟡 CAUTION — dig a little, not a fraud accusation*");
-    expect(x.human_note).toContain("• Rule of thumb: human glance before attorney send");
-    expect(x.human_note).toContain("• Why this is yellow (not a fraud accusation):");
-    expect(x.human_note).toContain("old breach dataset");
-    expect(x.human_note).toContain("Passwords were NOT saved or written to HubSpot");
-    expect(x.human_note).toContain("Human glance before attorney send (yellow — dig a little, not a fraud accusation)");
+    expect(x.verdict).toBe("NEEDS_REVIEW");
+    expect(x.human_note).toContain("🚦 *VERDICT: 🟡 NEEDS REVIEW*");
+    expect(x.human_note).toContain("Breach lookup (h8mail)");
+    expect(x.human_note).not.toContain("Why this is yellow");
+    expect(x.human_note).not.toMatch(/old breach dataset|normal for a real/);
     expect(x.human_note).not.toMatch(JARGON);
-    expect(x.human_note).not.toMatch(DNS_DUMP);
-    expect(x.human_note).toMatch(/not a fraud accusation|not “you are a fraud/i);
-    expect(x.human_note).not.toMatch(/\b(?:this (?:person|lead|client) is a fraud|accuse(?:d)? of fraud)\b/i);
   });
 
   it("states incomplete in staff English when OSINT did not run",()=>{
