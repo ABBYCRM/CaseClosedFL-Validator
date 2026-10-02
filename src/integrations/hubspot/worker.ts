@@ -115,7 +115,15 @@ async function syncFormsOnce(){
 
 function toNoteRecord(n:HubSpotCrmNote):HubSpotNoteRecord{return{id:n.id,body:n.body,timestampMs:n.timestampMs};}
 function toContactRecord(c:HubSpotCrmContact):HubSpotContactRecord{
-  return{id:c.id,email:c.email,firstName:c.firstName,lastName:c.lastName,phone:c.phone,state:c.state,zip:c.zip,city:c.city,emailBounceReason:c.emailBounceReason};
+  return{
+    id:c.id,email:c.email,firstName:c.firstName,lastName:c.lastName,phone:c.phone,state:c.state,zip:c.zip,city:c.city,
+    emailBounceReason:c.emailBounceReason,
+    trustedFormCertUrl:c.trustedFormCertUrl,
+    trustedFormPingUrl:c.trustedFormPingUrl,
+    trustedFormRetainStatus:c.trustedFormRetainStatus,
+    trustedFormRetainExpiresAt:c.trustedFormRetainExpiresAt,
+    trustedFormRetainResult:c.trustedFormRetainResult
+  };
 }
 
 async function crmLookbackSince(){
