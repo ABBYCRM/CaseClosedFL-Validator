@@ -201,4 +201,70 @@ describe("outcome note idempotency",()=>{
     expect(parsed.lead.incident.date).toBe("2026-08-10");
     expect((parsed.lead.metadata as any).hubspot.narrative).toContain("red light");
   });
+  it("keeps cert, ping, and email together for the portal handoff",()=>{
+    const cert="https://cert.trustedform.com/454a35b802f3e7b63ffabb4efedb7c6ebe67886c";
+    const ping="https://ping.trustedform.com/454a35b802f3e7b63ffabb4efedb7c6ebe67886c";
+    const body=`${LIVE_INTAKE}
+🔒 TrustedForm cert: ${cert}
+📡 TrustedForm ping: ${ping}
+Lead email: PaisaBrazilFL@gmail.com
+TrustedForm cert retained, expires October 2, 2029.`;
+    const parsed=notesToLead({
+      intake:{id:"note_tf",body,timestampMs:1},
+      contact:{
+        ...contact,
+        trustedFormRetainStatus:"SUCCESS",
+        trustedFormRetainExpiresAt:"2029-10-02",
+        trustedFormRetainResult:"TrustedForm cert retained, expires October 2, 2029."
+      }
+    });
+    expect(parsed.ok).toBe(true);
+    if(!parsed.ok)return;
+    expect((parsed.lead.metadata as any).trustedform).toEqual({
+      cert_url:cert,
+      ping_url:ping,
+      retain_status:"SUCCESS",
+      retain_expires_at:"2029-10-02",
+      retain_result:"TrustedForm cert retained, expires October 2, 2029.",
+      email:"paisabrazilfl@gmail.com"
+    });
+  });
+  it("keeps cert, ping, status, result, and email when retain expiry is missing",()=>{
+    const cert="https://cert.trustedform.com/454a35b802f3e7b63ffabb4efedb7c6ebe67886c";
+    const ping="https://ping.trustedform.com/454a35b802f3e7b63ffabb4efedb7c6ebe67886c";
+    const parsed=notesToLead({
+      intake:{id:"note_tf_partial",body:`${LIVE_INTAKE}\nTrustedForm ping: ${ping}`,timestampMs:1},
+      contact:{...contact,trustedFormCertUrl:cert,trustedFormRetainStatus:"SUCCESS",trustedFormRetainResult:"TrustedForm cert retained."}
+    });
+    expect(parsed.ok).toBe(true);
+    if(!parsed.ok)return;
+    expect((parsed.lead.metadata as any).trustedform).toEqual({
+      cert_url:cert,
+      ping_url:ping,
+      retain_status:"SUCCESS",
+      retain_expires_at:"",
+      retain_result:"TrustedForm cert retained.",
+      email:"paisabrazilfl@gmail.com"
+    });
+  });
+  it("uses the newest retain sentence without dropping cert, ping, or email",()=>{
+    const olderCert="https://cert.trustedform.com/older";
+    const newerCert="https://cert.trustedform.com/newer";
+    const ping="https://ping.trustedform.com/newer";
+    const parsed=notesToLead({
+      intake:{id:"note_intake",body:`${LIVE_INTAKE}\nTrustedForm cert: ${olderCert}\nTrustedForm retain skipped: no certificate.`,timestampMs:1},
+      supplementals:[{id:"note_supp",body:`${SUPPLEMENTAL}\nTrustedForm cert: ${newerCert}\nTrustedForm ping: ${ping}\nTrustedForm cert retained, expires October 2, 2029.`,timestampMs:2}],
+      contact
+    });
+    expect(parsed.ok).toBe(true);
+    if(!parsed.ok)return;
+    expect((parsed.lead.metadata as any).trustedform).toEqual({
+      cert_url:newerCert,
+      ping_url:ping,
+      retain_status:"",
+      retain_expires_at:"",
+      retain_result:"TrustedForm cert retained, expires October 2, 2029.",
+      email:"paisabrazilfl@gmail.com"
+    });
+  });
 });

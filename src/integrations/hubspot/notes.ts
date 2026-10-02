@@ -15,6 +15,20 @@ export interface HubSpotContactRecord {
   zip?:string;
   city?:string;
   emailBounceReason?:string;
+  trustedFormCertUrl?:string;
+  trustedFormPingUrl?:string;
+  trustedFormRetainStatus?:string;
+  trustedFormRetainExpiresAt?:string;
+  trustedFormRetainResult?:string;
+}
+
+export interface TrustedFormHandoff {
+  cert_url:string;
+  ping_url:string;
+  retain_status:string;
+  retain_expires_at:string;
+  retain_result:string;
+  email:string;
 }
 
 export interface NotesToLeadInput {
@@ -140,6 +154,29 @@ function resolveState(fields:Map<string,string>[],contact:HubSpotContactRecord){
     ?? stateFromZip(contact.zip);
 }
 
+const RETAIN_SENTENCE=/TrustedForm (?:cert retained(?:, expires [^.]+)?|retain failed: [^.]+|retain skipped: [^.]+)\./;
+
+export function trustedFormHandoff(input:{
+  email?:string;
+  maps:Map<string,string>[];
+  contact?:HubSpotContactRecord;
+  noteBody?:string;
+}):TrustedFormHandoff{
+  const email=validEmail(input.email)??"";
+  const note=htmlToText(input.noteBody??"");
+  const sentence=note.match(RETAIN_SENTENCE)?.[0]??"";
+  const certFromNote=note.match(/TrustedForm cert:\s*(https?:\/\/\S+)/i)?.[1]?.replace(/[),.;]+$/,"")??"";
+  const pingFromNote=note.match(/TrustedForm ping:\s*(https?:\/\/\S+)/i)?.[1]?.replace(/[),.;]+$/,"")??"";
+  return {
+    cert_url:present(input.contact?.trustedFormCertUrl)??firstPresent(input.maps,["trustedform_cert","trustedform_cert_url","xxtrustedformcerturl"])??certFromNote,
+    ping_url:present(input.contact?.trustedFormPingUrl)??firstPresent(input.maps,["trustedform_ping","trustedform_ping_url","xxtrustedformpingurl"])??pingFromNote,
+    retain_status:present(input.contact?.trustedFormRetainStatus)??firstPresent(input.maps,["trustedform_retain","trustedform_retain_status"])??"",
+    retain_expires_at:present(input.contact?.trustedFormRetainExpiresAt)??"",
+    retain_result:present(input.contact?.trustedFormRetainResult)??sentence,
+    email
+  };
+}
+
 function validEmail(v?:string){
   const t=present(v)?.toLowerCase();
   if(!t||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t))return undefined;
@@ -212,7 +249,13 @@ export function notesToLead(input:NotesToLeadInput):NotesParseResult{
         supplemental_timestamp:newest?.timestampMs,
         fingerprint,
         narrative
-      }
+      },
+      trustedform:trustedFormHandoff({
+        email,
+        maps,
+        contact:input.contact,
+        noteBody:[...[...supplementals].reverse().map(note=>note.body),input.intake.body].join("\n")
+      })
     }
   };
   return{ok:true,lead,missing:[],fingerprint};

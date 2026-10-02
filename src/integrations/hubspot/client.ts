@@ -159,9 +159,17 @@ export interface HubSpotCrmContact {
   zip?:string;
   city?:string;
   emailBounceReason?:string;
+  trustedFormCertUrl?:string;
+  trustedFormPingUrl?:string;
+  trustedFormRetainStatus?:string;
+  trustedFormRetainExpiresAt?:string;
+  trustedFormRetainResult?:string;
 }
 
-const CONTACT_PROPS=["email","firstname","lastname","phone","mobilephone","state","hs_state_code","zip","city","hs_email_hard_bounce_reason_enum"];
+const BASE_CONTACT_PROPS=["email","firstname","lastname","phone","mobilephone","state","hs_state_code","zip","city","hs_email_hard_bounce_reason_enum"];
+const TRUSTEDFORM_CONTACT_PROPS=["trustedform_cert_url","xxtrustedformcerturl","trustedform_ping_url","xxtrustedformpingurl","trustedform_retain_status","trustedform_retain_expires_at","trustedform_retain_result"];
+const CONTACT_PROPS=[...BASE_CONTACT_PROPS,...TRUSTEDFORM_CONTACT_PROPS];
+const BASE_CONTACT_PROP_SET=new Set(BASE_CONTACT_PROPS);
 
 function noteTimestampMs(props:any){
   const raw=props?.hs_timestamp??props?.hs_lastmodifieddate??props?.hs_createdate;
@@ -191,7 +199,12 @@ function asContact(row:any):HubSpotCrmContact|undefined{
     state:p.hs_state_code||p.state||undefined,
     zip:p.zip||undefined,
     city:p.city||undefined,
-    emailBounceReason:p.hs_email_hard_bounce_reason_enum||undefined
+    emailBounceReason:p.hs_email_hard_bounce_reason_enum||undefined,
+    trustedFormCertUrl:p.trustedform_cert_url||p.xxtrustedformcerturl||undefined,
+    trustedFormPingUrl:p.trustedform_ping_url||p.xxtrustedformpingurl||undefined,
+    trustedFormRetainStatus:p.trustedform_retain_status||undefined,
+    trustedFormRetainExpiresAt:p.trustedform_retain_expires_at||undefined,
+    trustedFormRetainResult:p.trustedform_retain_result||undefined
   };
 }
 
@@ -253,17 +266,98 @@ export async function readNotes(noteIds:string[]):Promise<HubSpotCrmNote[]>{
   return out;
 }
 
-export async function readContacts(contactIds:string[]):Promise<Map<string,HubSpotCrmContact>>{
+function hubspotErrorMessage(error:unknown){
+  return String((error as {message?:string})?.message??error);
+}
+
+function isUnknownPropertyError(message:string){
+  return /propert(?:y|ies)/i.test(message)&&/does not exist|do not exist|doesn't exist|PROPERTY_DOESNT_EXIST|unknown property|not a valid property|is not defined/i.test(message);
+}
+
+function unknownPropertyNames(message:string){
+  const text=message.replace(/\\+"/g,'"');
+  const found:string[]=[];
+  const add=(name?:string)=>{
+    if(!name||!/^[A-Za-z][A-Za-z0-9_]*$/.test(name))return;
+    if(/^(?:property|properties)$/i.test(name)||found.includes(name))return;
+    found.push(name);
+  };
+  for(const match of text.matchAll(/"propertyName"\s*:\s*\[([^\]]*)\]/gi)){
+    for(const name of (match[1]??"").matchAll(/"([A-Za-z][A-Za-z0-9_]*)"/g)) add(name[1]);
+  }
+  for(const match of text.matchAll(/"([A-Za-z][A-Za-z0-9_]*)"\s+does not exist/gi)) add(match[1]);
+  for(const match of text.matchAll(/\b([A-Za-z][A-Za-z0-9_]*)\s+does not exist/gi)) add(match[1]);
+  for(const match of text.matchAll(/"name"\s*:\s*"([A-Za-z][A-Za-z0-9_]*)"/gi)){
+    const start=match.index??0;
+    const around=text.slice(Math.max(0,start-160),start+160);
+    if(/PROPERTY_DOESNT_EXIST|does not exist/i.test(around)) add(match[1]);
+  }
+  return found;
+}
+
+function namedMissingOptional(properties:string[],message:string){
+  const optional=new Set(properties.filter(name=>!BASE_CONTACT_PROP_SET.has(name)));
+  return unknownPropertyNames(message).filter(name=>optional.has(name));
+}
+
+async function readContactBatch(contactIds:string[],properties:string[],opts?:HubSpotHttpOptions):Promise<Map<string,HubSpotCrmContact>>{
   const out=new Map<string,HubSpotCrmContact>();
   for(let i=0;i<contactIds.length;i+=100){
     const chunk=contactIds.slice(i,i+100);
     if(!chunk.length)continue;
-    const j:any=await hs(`/crm/v3/objects/contacts/batch/read`,{method:"POST",body:JSON.stringify({properties:CONTACT_PROPS,inputs:chunk.map(id=>({id}))})});
+    const j:any=await hs(`/crm/v3/objects/contacts/batch/read`,{method:"POST",body:JSON.stringify({properties,inputs:chunk.map(id=>({id}))})},opts);
     for(const row of j.results??[]){
       const contact=asContact(row);
       if(contact)out.set(contact.id,contact);
     }
   }
   return out;
+}
+
+async function rejectedOptionalProperties(contactIds:string[],properties:string[],opts?:HubSpotHttpOptions){
+  const optional=properties.filter(name=>!BASE_CONTACT_PROP_SET.has(name));
+  const sample=contactIds.slice(0,1);
+  const rejected:string[]=[];
+  for(const prop of optional){
+    if(rejected.includes(prop))continue;
+    const requested=[...BASE_CONTACT_PROPS,prop];
+    try{
+      await readContactBatch(sample,requested,opts);
+    }catch(error){
+      const message=hubspotErrorMessage(error);
+      if(!isUnknownPropertyError(message)) throw error;
+      const named=unknownPropertyNames(message).filter(name=>requested.includes(name));
+      if(named.some(name=>BASE_CONTACT_PROP_SET.has(name))) throw error;
+      if(!named.length||named.includes(prop)) rejected.push(prop);
+    }
+  }
+  return rejected;
+}
+
+export async function readContacts(contactIds:string[],opts?:HubSpotHttpOptions):Promise<Map<string,HubSpotCrmContact>>{
+  // A missing TrustedForm property is removed on its own. The other requested fields stay.
+  let properties=[...CONTACT_PROPS];
+  const seen=new Set<string>();
+  let lastError:unknown;
+  for(;;){
+    const key=properties.join("\n");
+    if(seen.has(key)) throw lastError??new Error("HUBSPOT_CONTACT_PROPERTIES_UNRESOLVED");
+    seen.add(key);
+    try{
+      return await readContactBatch(contactIds,properties,opts);
+    }catch(error){
+      lastError=error;
+      const message=hubspotErrorMessage(error);
+      if(!isUnknownPropertyError(message)) throw error;
+      const named=unknownPropertyNames(message);
+      let drop=namedMissingOptional(properties,message);
+      if(!drop.length&&named.some(name=>BASE_CONTACT_PROP_SET.has(name)&&properties.includes(name))) throw error;
+      if(!drop.length) drop=await rejectedOptionalProperties(contactIds,properties,opts);
+      if(!drop.length) throw error;
+      const next=properties.filter(name=>!drop.includes(name));
+      if(next.length===properties.length) throw error;
+      properties=next;
+    }
+  }
 }
 
