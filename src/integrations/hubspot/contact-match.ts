@@ -60,5 +60,5 @@ function joinLabels(labels:string[]){
 }
 
 export function possibleDuplicateNotePrefix(differing:MatchField[]){
-  return`Possible duplicate: this form submission's ${joinLabels(differing.map(f=>FIELD_LABEL[f]))} differ from this contact. Contact properties were not changed.`;
+  return`Possible duplicate: this form submission's ${joinLabels(differing.map(f=>FIELD_LABEL[f]))} ${differing.length===1?"differs":"differ"} from this contact. Contact properties were not changed.`;
 }

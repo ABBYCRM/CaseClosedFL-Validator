@@ -58,7 +58,7 @@ describe("contact-match classification (required cases)",()=>{
   });
   it("builds the possible-duplicate prefix",()=>{
     expect(possibleDuplicateNotePrefix(["phone"])).toBe(
-      "Possible duplicate: this form submission's phone differ from this contact. Contact properties were not changed."
+      "Possible duplicate: this form submission's phone differs from this contact. Contact properties were not changed."
     );
     expect(possibleDuplicateNotePrefix(["email","phone"])).toContain("email and phone differ");
   });
@@ -87,7 +87,7 @@ describe("form submission vs found contact (processEmail rule)",()=>{
     expect(match).toMatchObject({kind:"PARTIAL",matched:["email"],differing:["phone"]});
     const note=formOutcomeNote(NOTE,match);
     expect(note.possibleDuplicate).toBe(true);
-    expect(note.body.startsWith("<p>Possible duplicate: this form submission's phone differ from this contact.")).toBe(true);
+    expect(note.body.startsWith("<p>Possible duplicate: this form submission's phone differs from this contact.")).toBe(true);
     expect(note.body).toContain("Contact properties were not changed.");
     expect(note.body.endsWith(NOTE)).toBe(true);
   });
