@@ -225,7 +225,7 @@ TrustedForm cert retained, expires October 2, 2029.`;
       ping_url:ping,
       retain_status:"SUCCESS",
       retain_expires_at:"2029-10-02",
-      retain_result:"TrustedForm cert retained, expires October 2, 2029.",
+      retain_result:"TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 2, 2029.",
       email:"paisabrazilfl@gmail.com"
     });
   });
@@ -243,7 +243,7 @@ TrustedForm cert retained, expires October 2, 2029.`;
       ping_url:ping,
       retain_status:"SUCCESS",
       retain_expires_at:"",
-      retain_result:"TrustedForm cert retained.",
+      retain_result:"TrustedForm cert retained (stored 5 years).",
       email:"paisabrazilfl@gmail.com"
     });
   });
@@ -263,8 +263,42 @@ TrustedForm cert retained, expires October 2, 2029.`;
       ping_url:ping,
       retain_status:"",
       retain_expires_at:"",
-      retain_result:"TrustedForm cert retained, expires October 2, 2029.",
+      retain_result:"TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 2, 2029.",
       email:"paisabrazilfl@gmail.com"
     });
+  });
+  const retainResultFromNote=(line:string)=>{
+    const parsed=notesToLead({intake:{id:"note_tf_line",body:`${LIVE_INTAKE}\n${line}`,timestampMs:1},contact});
+    if(!parsed.ok)throw new Error("expected parsed lead");
+    return (parsed.lead.metadata as any).trustedform.retain_result as string;
+  };
+  it("extracts the new retain sentence with a lookup/claim window date",()=>{
+    expect(retainResultFromNote("TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 6, 2026. Email did not match the certificate."))
+      .toBe("TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 6, 2026.");
+  });
+  it("extracts the new retain sentence without a date",()=>{
+    expect(retainResultFromNote("TrustedForm cert retained (stored 5 years). Email did not match the certificate."))
+      .toBe("TrustedForm cert retained (stored 5 years).");
+  });
+  it("modernizes legacy retain sentences found in notes",()=>{
+    expect(retainResultFromNote("TrustedForm cert retained, expires October 6, 2026."))
+      .toBe("TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 6, 2026.");
+    expect(retainResultFromNote("TrustedForm cert retained."))
+      .toBe("TrustedForm cert retained (stored 5 years).");
+  });
+  it("keeps failure and skipped retain sentences unchanged",()=>{
+    expect(retainResultFromNote("TrustedForm retain failed: HTTP 404.")).toBe("TrustedForm retain failed: HTTP 404.");
+    expect(retainResultFromNote("TrustedForm retain skipped: no certificate.")).toBe("TrustedForm retain skipped: no certificate.");
+  });
+  it("modernizes a legacy contact retain result without changing other TrustedForm fields",()=>{
+    const parsed=notesToLead({
+      intake:{id:"note_tf_contact",body:LIVE_INTAKE,timestampMs:1},
+      contact:{...contact,trustedFormRetainStatus:"SUCCESS",trustedFormRetainExpiresAt:"2026-10-06",trustedFormRetainResult:"TrustedForm cert retained, expires October 6, 2026. Do not contact."}
+    });
+    if(!parsed.ok)throw new Error("expected parsed lead");
+    const tf=(parsed.lead.metadata as any).trustedform;
+    expect(tf.retain_result).toBe("TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 6, 2026. Do not contact.");
+    expect(tf.retain_expires_at).toBe("2026-10-06");
+    expect(tf.retain_status).toBe("SUCCESS");
   });
 });

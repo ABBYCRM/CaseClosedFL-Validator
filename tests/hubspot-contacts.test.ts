@@ -16,6 +16,8 @@ const stored:Record<string,string>={
   trustedform_retain_result:"TrustedForm cert retained, expires October 2, 2029."
 };
 
+const displayedRetainResult="TrustedForm cert retained (stored 5 years). Lookup/claim window ends October 2, 2029.";
+
 function jsonResponse(body:unknown,status=200){
   return new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json"}});
 }
@@ -48,7 +50,7 @@ describe("HubSpot contact TrustedForm properties",()=>{
     expect(contact?.trustedFormPingUrl).toBe(ping);
     expect(contact?.trustedFormRetainStatus).toBe("SUCCESS");
     expect(contact?.trustedFormRetainExpiresAt).toBeUndefined();
-    expect(contact?.trustedFormRetainResult).toBe(stored.trustedform_retain_result);
+    expect(contact?.trustedFormRetainResult).toBe(displayedRetainResult);
     expect(contact?.email).toBe("paisabrazilfl@gmail.com");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -66,7 +68,7 @@ describe("HubSpot contact TrustedForm properties",()=>{
     expect(contact?.trustedFormPingUrl).toBe(ping);
     expect(contact?.trustedFormRetainStatus).toBe("SUCCESS");
     expect(contact?.trustedFormRetainExpiresAt).toBe("2029-10-02");
-    expect(contact?.trustedFormRetainResult).toBe(stored.trustedform_retain_result);
+    expect(contact?.trustedFormRetainResult).toBe(displayedRetainResult);
   });
 
   it("drops only the rejected property and retries with the other TrustedForm fields",async()=>{
@@ -99,7 +101,7 @@ describe("HubSpot contact TrustedForm properties",()=>{
     expect(contact?.trustedFormPingUrl).toBe(ping);
     expect(contact?.trustedFormRetainStatus).toBe("SUCCESS");
     expect(contact?.trustedFormRetainExpiresAt).toBe("2029-10-02");
-    expect(contact?.trustedFormRetainResult).toBe(stored.trustedform_retain_result);
+    expect(contact?.trustedFormRetainResult).toBe(displayedRetainResult);
     expect(contact?.email).toBe("paisabrazilfl@gmail.com");
   });
 
@@ -154,7 +156,7 @@ describe("HubSpot contact TrustedForm properties",()=>{
     expect(contact?.trustedFormPingUrl).toBe(ping);
     expect(contact?.trustedFormRetainStatus).toBe("SUCCESS");
     expect(contact?.trustedFormRetainExpiresAt).toBe("2029-10-02");
-    expect(contact?.trustedFormRetainResult).toBe(stored.trustedform_retain_result);
+    expect(contact?.trustedFormRetainResult).toBe(displayedRetainResult);
   });
 
   it("does not retry when HubSpot rejects the batch for a reason other than an unknown property",async()=>{
@@ -167,6 +169,15 @@ describe("HubSpot contact TrustedForm properties",()=>{
     const fetchMock=vi.fn(async()=>jsonResponse({message:'Property "email" does not exist'},400));
     await expect(readContacts(["451"],optsFor(fetchMock))).rejects.toThrow(/email/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a contact retain result already in the new wording unchanged",async()=>{
+    const fetchMock=vi.fn(async(_url:string,init?:RequestInit)=>{
+      return jsonResponse({results:[contactRow(propertiesFrom(init),{...stored,trustedform_retain_result:"TrustedForm cert retained (stored 5 years)."})]});
+    });
+    const contact=(await readContacts(["451"],optsFor(fetchMock))).get("451");
+    expect(contact?.trustedFormRetainResult).toBe("TrustedForm cert retained (stored 5 years).");
+    expect(contact?.trustedFormRetainExpiresAt).toBe("2029-10-02");
   });
 
   it("returns an empty map without calling HubSpot when there are no contacts",async()=>{
