@@ -62,8 +62,8 @@ export async function findContactByEmail(email:string):Promise<string|null>{
   return uniqueHubSpotContactId(j);
 }
 
-export interface HubSpotContactIdentity { id:string; email?:string; firstName?:string; lastName?:string; phone?:string; street?:string; city?:string; state?:string; zip?:string; }
-const IDENTITY_PROPS=["email","firstname","lastname","phone","address","city","state","zip"];
+export interface HubSpotContactIdentity { id:string; email?:string; phone?:string; }
+const IDENTITY_PROPS=["email","phone"];
 
 export async function readContactIdentity(contactId:string,opts?:HubSpotHttpOptions):Promise<HubSpotContactIdentity>{
   const qs=new URLSearchParams({properties:IDENTITY_PROPS.join(",")});
@@ -71,8 +71,7 @@ export async function readContactIdentity(contactId:string,opts?:HubSpotHttpOpti
   const p=j.properties??{};
   return{
     id:String(j.id??contactId),
-    email:p.email||undefined,firstName:p.firstname||undefined,lastName:p.lastname||undefined,phone:p.phone||undefined,
-    street:p.address||undefined,city:p.city||undefined,state:p.state||undefined,zip:p.zip||undefined
+    email:p.email||undefined,phone:p.phone||undefined
   };
 }
 

@@ -1,16 +1,12 @@
 import {describe,expect,it,vi} from "vitest";
 import {
-  classifyContactMatch,normalizeAddress,normalizeEmail,normalizeName,normalizePhone,possibleDuplicateNotePrefix,type MatchRecord
+  classifyContactMatch,normalizeEmail,normalizePhone,possibleDuplicateNotePrefix,type MatchRecord
 } from "../src/integrations/hubspot/contact-match.js";
 import {readContactIdentity,type HubSpotContactIdentity} from "../src/integrations/hubspot/client.js";
-import {submissionContactAddress,toLead} from "../src/integrations/hubspot/mapper.js";
+import {toLead} from "../src/integrations/hubspot/mapper.js";
 import {formOutcomeNote,matchFormContact} from "../src/integrations/hubspot/worker.js";
 
-const existing:MatchRecord={
-  email:"jane.doe@example.com",phone:"(561) 405-0478",firstName:"Jane",lastName:"Doe",
-  address:{street:"123 Main St.",city:"West Palm Beach",state:"FL",zip:"33401-1234"}
-};
-const ADDR={compareAddress:true};
+const existing:MatchRecord={email:"jane.doe@example.com",phone:"(561) 405-0478"};
 
 describe("contact-match normalization",()=>{
   it("normalizes email without stripping plus-addressing",()=>{
@@ -24,67 +20,47 @@ describe("contact-match normalization",()=>{
     expect(normalizePhone("405-0478")).toBe("");
     expect(normalizePhone("")).toBe("");
   });
-  it("compares full names, not first names",()=>{
-    expect(normalizeName({firstName:"  Jane ",lastName:"  Doe  "})).toBe("jane doe");
-    expect(normalizeName({name:"JANE   DOE"})).toBe("jane doe");
-    expect(normalizeName({firstName:"Jane",lastName:"Doe"})).not.toBe(normalizeName({firstName:"Jane",lastName:"Smith"}));
-  });
-  it("compares street + city + state + ZIP5 together",()=>{
-    expect(normalizeAddress({street:"123 Main St.",city:"West Palm Beach",state:"Florida",zip:"33401-1234"}))
-      .toBe(normalizeAddress({street:"123  main st",city:"west palm beach",state:"FL",zip:"33401"}));
-    expect(normalizeAddress({street:"#4 Oak Ave",city:"Miami",state:"FL",zip:"33101"})).not.toBe(normalizeAddress({street:"4 Oak Ave",city:"Tampa",state:"FL",zip:"33101"}));
-    expect(normalizeAddress({})).toBe("");
-  });
   it("treats blank on both sides as equal and blank on one side as different",()=>{
-    const a={email:"x@example.com",firstName:"A",lastName:"B"};
-    expect(classifyContactMatch(a,{...a},{compareAddress:false}).kind).toBe("FULL");
-    const r=classifyContactMatch({...a,phone:"5614050478"},a,{compareAddress:false});
-    expect(r.kind).toBe("PARTIAL");
-    expect(r.differing).toEqual(["phone"]);
-    expect(r.matched).toEqual(["email","name"]);
+    const phoneOnly={phone:"5614050478"};
+    expect(classifyContactMatch(phoneOnly,{phone:"(561) 405-0478"})).toMatchObject({kind:"FULL",matched:["phone"],differing:[]});
+    const r=classifyContactMatch({email:"x@example.com",phone:"5614050478"},{email:"x@example.com"});
+    expect(r).toMatchObject({kind:"PARTIAL",matched:["email"],differing:["phone"]});
+  });
+  it("compares only email and phone",()=>{
+    expect(classifyContactMatch(existing,existing).compared).toEqual(["email","phone"]);
   });
 });
 
 describe("contact-match classification (required cases)",()=>{
-  it("1. full match: formats differ but every field is equal",()=>{
-    const r=classifyContactMatch({
-      email:"JANE.DOE@example.com ",phone:"+1 561-405-0478",firstName:"jane",lastName:"DOE",
-      address:{street:"123 main st",city:"west palm beach",state:"Florida",zip:"33401"}
-    },existing,ADDR);
-    expect(r.kind).toBe("FULL");
-    expect(r.differing).toEqual([]);
-    expect(r.matched).toEqual(["email","phone","name","address"]);
+  it("1. full match: same email + same phone in different formats",()=>{
+    const r=classifyContactMatch({email:"JANE.DOE@example.com ",phone:"+1 561-405-0478"},existing);
+    expect(r).toMatchObject({kind:"FULL",matched:["email","phone"],differing:[]});
   });
-  it("2. partial on phone only (different email and name)",()=>{
-    const r=classifyContactMatch({...existing,email:"someone.else@example.com",firstName:"John",lastName:"Smith"},existing,ADDR);
-    expect(r.kind).toBe("PARTIAL");
-    expect(r.matched).toEqual(["phone","address"]);
-    expect(r.differing).toEqual(["email","name"]);
-    const phoneOnly=classifyContactMatch({email:"other@example.com",phone:"5614050478",name:"John Smith"},existing,{compareAddress:false});
-    expect(phoneOnly).toMatchObject({kind:"PARTIAL",matched:["phone"],differing:["email","name"]});
+  it("2. partial on phone only (different email)",()=>{
+    const r=classifyContactMatch({email:"someone.else@example.com",phone:"5614050478"},existing);
+    expect(r).toMatchObject({kind:"PARTIAL",matched:["phone"],differing:["email"]});
   });
-  it("3. partial on email only (different phone and name)",()=>{
-    const r=classifyContactMatch({email:existing.email,phone:"3055550100",firstName:"John",lastName:"Smith"},existing,{compareAddress:false});
-    expect(r).toMatchObject({kind:"PARTIAL",matched:["email"],differing:["phone","name"]});
+  it("3. partial on email only (different phone)",()=>{
+    const r=classifyContactMatch({email:existing.email,phone:"3055550100"},existing);
+    expect(r).toMatchObject({kind:"PARTIAL",matched:["email"],differing:["phone"]});
   });
-  it("4. name mismatch with same email and phone is partial",()=>{
-    const r=classifyContactMatch({...existing,firstName:"Janet"},existing,ADDR);
-    expect(r).toMatchObject({kind:"PARTIAL",differing:["name"]});
-    expect(r.matched).toEqual(["email","phone","address"]);
+  it("4. name mismatch with same email + same phone is a full match",()=>{
+    const r=classifyContactMatch({...existing,firstName:"Luis",lastName:"Lacerda"} as MatchRecord,{...existing,firstName:"Jane",lastName:"Doe"} as MatchRecord);
+    expect(r).toMatchObject({kind:"FULL",differing:[]});
   });
   it("5. exact resubmit is a full match every time",()=>{
     const payload={...existing};
-    expect(classifyContactMatch(payload,existing,ADDR).kind).toBe("FULL");
-    expect(classifyContactMatch({...payload},existing,ADDR).kind).toBe("FULL");
+    expect(classifyContactMatch(payload,existing).kind).toBe("FULL");
+    expect(classifyContactMatch({...payload},existing).kind).toBe("FULL");
   });
-  it("none when no non-blank field is equal",()=>{
-    expect(classifyContactMatch({email:"b@example.com",phone:"3055550100",name:"Bob Roe"},existing,{compareAddress:false}).kind).toBe("NONE");
+  it("none when neither email nor phone is equal",()=>{
+    expect(classifyContactMatch({email:"b@example.com",phone:"3055550100"},existing).kind).toBe("NONE");
   });
   it("builds the possible-duplicate prefix",()=>{
-    expect(possibleDuplicateNotePrefix(["phone","name"])).toBe(
-      "Possible duplicate: this form submission's phone and full name differ from this contact. Contact properties were not changed."
+    expect(possibleDuplicateNotePrefix(["phone"])).toBe(
+      "Possible duplicate: this form submission's phone differ from this contact. Contact properties were not changed."
     );
-    expect(possibleDuplicateNotePrefix(["phone","name","address"])).toContain("phone, full name and address differ");
+    expect(possibleDuplicateNotePrefix(["email","phone"])).toContain("email and phone differ");
   });
 });
 
@@ -92,64 +68,55 @@ const initialBase=[
   {name:"email",value:"jane.doe@example.com"},{name:"firstname",value:"Jane"},{name:"lastname",value:"Doe"},
   {name:"phone",value:"(561) 405-0478"},{name:"service_state",value:"FL"},{name:"case_type",value:"Car accident"}
 ];
-const contact:HubSpotContactIdentity={
-  id:"451",email:"jane.doe@example.com",firstName:"Jane",lastName:"Doe",phone:"+15614050478",
-  street:"123 Main St",city:"West Palm Beach",state:"FL",zip:"33401"
-};
+const contact:HubSpotContactIdentity={id:"451",email:"jane.doe@example.com",phone:"+15614050478"};
 function submit(extra:Array<{name:string;value:string}>=[],override:Record<string,string>={}){
   const values=[...initialBase.map(v=>override[v.name]!==undefined?{...v,value:override[v.name]!}:v),...extra];
   const initial={conversionId:"c1",submittedAt:1,values};
-  return{lead:toLead({initial,initialFormGuid:"i",supplementalFormGuid:"s"}),address:submissionContactAddress({initial})};
+  return toLead({initial,initialFormGuid:"i",supplementalFormGuid:"s"});
 }
-const ADDRESS_FIELDS=[{name:"address",value:"123 Main St."},{name:"city",value:"West Palm Beach"},{name:"state",value:"FL"},{name:"zip",value:"33401"}];
 const NOTE="<p>Verdict: 🟢</p><p>Validation ID: v1</p>";
 
 describe("form submission vs found contact (processEmail rule)",()=>{
   it("full match leaves the outcome note unchanged",()=>{
-    const {lead,address}=submit(ADDRESS_FIELDS);
-    const match=matchFormContact(lead,address,contact);
-    expect(match.kind).toBe("FULL");
+    const match=matchFormContact(submit(),contact);
+    expect(match).toMatchObject({kind:"FULL",compared:["email","phone"]});
     expect(formOutcomeNote(NOTE,match)).toEqual({body:NOTE,possibleDuplicate:false});
   });
-  it("skips the address comparison when the form did not collect one",()=>{
-    const {lead,address}=submit();
-    expect(address).toBeUndefined();
-    const match=matchFormContact(lead,address,{...contact,street:undefined,city:undefined,state:undefined,zip:undefined});
-    expect(match.compared).toEqual(["email","phone","name"]);
-    expect(match.kind).toBe("FULL");
-  });
   it("email-only match keeps the note and prefixes the possible-duplicate warning",()=>{
-    const {lead,address}=submit([],{phone:"305-555-0100",firstname:"John",lastname:"Smith"});
-    const match=matchFormContact(lead,address,contact);
-    expect(match).toMatchObject({kind:"PARTIAL",matched:["email"],differing:["phone","name"]});
+    const match=matchFormContact(submit([],{phone:"305-555-0100"}),contact);
+    expect(match).toMatchObject({kind:"PARTIAL",matched:["email"],differing:["phone"]});
     const note=formOutcomeNote(NOTE,match);
     expect(note.possibleDuplicate).toBe(true);
-    expect(note.body.startsWith("<p>Possible duplicate: this form submission's phone and full name differ from this contact.")).toBe(true);
+    expect(note.body.startsWith("<p>Possible duplicate: this form submission's phone differ from this contact.")).toBe(true);
     expect(note.body).toContain("Contact properties were not changed.");
     expect(note.body.endsWith(NOTE)).toBe(true);
   });
-  it("flags an address difference",()=>{
-    const {lead,address}=submit([...ADDRESS_FIELDS.filter(f=>f.name!=="city"),{name:"city",value:"Tampa"}]);
-    const match=matchFormContact(lead,address,contact);
-    expect(match).toMatchObject({kind:"PARTIAL",differing:["address"]});
+  it("name mismatch with same email and phone is a full match (no flag)",()=>{
+    const match=matchFormContact(submit([],{firstname:"Luis",lastname:"Lacerda"}),contact);
+    expect(match.kind).toBe("FULL");
+    expect(formOutcomeNote(NOTE,match).possibleDuplicate).toBe(false);
   });
-  it("name mismatch with same email and phone is flagged",()=>{
-    const {lead,address}=submit([],{firstname:"Janet"});
-    expect(matchFormContact(lead,address,{...contact,street:undefined,city:undefined,state:undefined,zip:undefined}).differing).toEqual(["name"]);
+  it("different address/ZIP with same email and phone is a full match",()=>{
+    const lead=submit([{name:"address",value:"9 Other Rd"},{name:"city",value:"Tampa"},{name:"state",value:"FL"},{name:"zip",value:"33602"}]);
+    expect(matchFormContact(lead,contact).kind).toBe("FULL");
+  });
+  it("exact resubmit stays a full match",()=>{
+    expect(matchFormContact(submit(),contact).kind).toBe("FULL");
+    expect(matchFormContact(submit(),contact).kind).toBe("FULL");
   });
 });
 
 describe("readContactIdentity",()=>{
-  it("reads the identity properties by id with a GET and never writes",async()=>{
+  it("reads email + phone by id with a GET and never writes",async()=>{
     const fetchMock=vi.fn(async(_url:string,_init?:RequestInit)=>new Response(JSON.stringify({id:"451",properties:{
-      email:"jane.doe@example.com",firstname:"Jane",lastname:"Doe",phone:"(561) 405-0478",address:"123 Main St",city:"West Palm Beach",state:"FL",zip:"33401"
+      email:"jane.doe@example.com",phone:"(561) 405-0478"
     }}),{status:200}));
     const identity=await readContactIdentity("451",{fetch:fetchMock as unknown as typeof fetch,accessToken:"pat-test",timeoutMs:5000});
     expect(identity).toEqual({...contact,phone:"(561) 405-0478"});
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url,init]=fetchMock.mock.calls[0]!;
     expect(url).toContain("/crm/v3/objects/contacts/451?");
-    expect(decodeURIComponent(url)).toContain("properties=email,firstname,lastname,phone,address,city,state,zip");
+    expect(decodeURIComponent(url)).toContain("properties=email,phone");
     expect(init?.method??"GET").toBe("GET");
   });
 });

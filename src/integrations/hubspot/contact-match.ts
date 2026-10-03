@@ -1,17 +1,14 @@
-import { mapState } from "./fields.js";
+/**
+ * Submission-vs-contact matching. Pure: no network, no DB.
+ * The match key is email + phone only; name and address are never compared.
+ */
 
-export type MatchField="email"|"phone"|"name"|"address";
+export type MatchField="email"|"phone";
 export type MatchKind="FULL"|"PARTIAL"|"NONE";
 
-export interface MatchAddress { street?:string; city?:string; state?:string; zip?:string; }
 export interface MatchRecord {
   email?:string;
   phone?:string;
-  firstName?:string;
-  lastName?:string;
-  /** Single full-name field, used only when first/last are both blank. */
-  name?:string;
-  address?:MatchAddress;
 }
 export interface ContactMatch {
   kind:MatchKind;
@@ -36,42 +33,16 @@ export function normalizePhone(v?:string){
   return"";
 }
 
-function cleanText(v?:string){
-  return String(v??"").normalize("NFKC").trim().replace(/\s+/g," ").toLowerCase();
-}
-
-export function normalizeName(r:Pick<MatchRecord,"firstName"|"lastName"|"name">){
-  const first=cleanText(r.firstName),last=cleanText(r.lastName);
-  if(first||last)return cleanText(`${first} ${last}`);
-  return cleanText(r.name);
-}
-
-function addressPart(v?:string){
-  return String(v??"").toLowerCase().replace(/[.,#]/g,"").replace(/\s+/g," ").trim();
-}
-
-/** street + city + state + ZIP5 compared together; "" when every part is blank. */
-export function normalizeAddress(a?:MatchAddress){
-  if(!a)return"";
-  const street=addressPart(a.street),city=addressPart(a.city);
-  const state=mapState(a.state)?.toLowerCase()??addressPart(a.state);
-  const zip5=String(a.zip??"").replace(/\D/g,"").slice(0,5);
-  if(!street&&!city&&!state&&!zip5)return"";
-  return[street,city,state,zip5].join("|");
-}
-
 /**
- * Classifies a submission against one candidate contact. Blank on both sides counts as equal
- * (but is not listed in `matched`); blank on one side only is a difference. Address is compared
- * only when `compareAddress` is set, i.e. when the form actually collected one.
+ * Classifies a submission against one candidate contact on email + phone. Blank on both sides counts
+ * as equal (but is not listed in `matched`); blank on one side only is a difference.
+ * FULL = both equal; PARTIAL = exactly one equal and non-blank; NONE = neither.
  */
-export function classifyContactMatch(submission:MatchRecord,candidate:MatchRecord,opts:{compareAddress:boolean}):ContactMatch{
+export function classifyContactMatch(submission:MatchRecord,candidate:MatchRecord):ContactMatch{
   const pairs:Array<[MatchField,string,string]>=[
     ["email",normalizeEmail(submission.email),normalizeEmail(candidate.email)],
-    ["phone",normalizePhone(submission.phone),normalizePhone(candidate.phone)],
-    ["name",normalizeName(submission),normalizeName(candidate)]
+    ["phone",normalizePhone(submission.phone),normalizePhone(candidate.phone)]
   ];
-  if(opts.compareAddress)pairs.push(["address",normalizeAddress(submission.address),normalizeAddress(candidate.address)]);
   const matched:MatchField[]=[],differing:MatchField[]=[];
   for(const [field,a,b] of pairs){
     if(a!==b)differing.push(field);
@@ -81,7 +52,7 @@ export function classifyContactMatch(submission:MatchRecord,candidate:MatchRecor
   return{kind,compared:pairs.map(p=>p[0]),matched,differing};
 }
 
-const FIELD_LABEL:Record<MatchField,string>={email:"email",phone:"phone",name:"full name",address:"address"};
+const FIELD_LABEL:Record<MatchField,string>={email:"email",phone:"phone"};
 
 function joinLabels(labels:string[]){
   if(labels.length<=1)return labels.join("");

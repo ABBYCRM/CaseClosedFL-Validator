@@ -8,8 +8,8 @@ import {
   listForms, readContactIdentity, readContacts, readNotes, searchNotesSince, type HubSpotContactIdentity,
   type HubSpotCrmContact, type HubSpotCrmNote, type HubSpotSubmission
 } from "./client.js";
-import { classifyContactMatch, possibleDuplicateNotePrefix, type ContactMatch, type MatchAddress } from "./contact-match.js";
-import { submissionContactAddress, submissionEmail, toLead } from "./mapper.js";
+import { classifyContactMatch, possibleDuplicateNotePrefix, type ContactMatch } from "./contact-match.js";
+import { submissionEmail, toLead } from "./mapper.js";
 import {
   classifyNote, findExistingOutcomeNote, newestSupplemental, notesToLead, outcomeNoteBody, toHubSpotNoteHtml,
   type HubSpotContactRecord, type HubSpotNoteRecord
@@ -74,15 +74,13 @@ async function ingest(formGuid:string){
 function asSubmission(row:any):HubSpotSubmission{return row.payload as HubSpotSubmission;}
 
 /**
- * Email + phone + full name are always compared. Address (street + city + state + ZIP5) is compared
- * only when the submission includes at least one of address/city/state/zip.
+ * Email + phone only; name and address are not compared. The contact was found by email, so in
+ * practice FULL = same phone and PARTIAL = different phone.
  */
-export function matchFormContact(lead:Lead,address:MatchAddress|undefined,contact:HubSpotContactIdentity):ContactMatch{
+export function matchFormContact(lead:Lead,contact:HubSpotContactIdentity):ContactMatch{
   return classifyContactMatch(
-    {email:lead.client.email,phone:lead.client.phone,firstName:lead.client.first_name,lastName:lead.client.last_name,address},
-    {email:contact.email,phone:contact.phone,firstName:contact.firstName,lastName:contact.lastName,
-      address:{street:contact.street,city:contact.city,state:contact.state,zip:contact.zip}},
-    {compareAddress:!!address}
+    {email:lead.client.email,phone:lead.client.phone},
+    {email:contact.email,phone:contact.phone}
   );
 }
 
@@ -104,7 +102,7 @@ async function processEmail(email:string,forms:FormRole){
     const lead=toLead({initial,supplemental,initialFormGuid:forms.initial,supplementalFormGuid:forms.supplemental});
     const contactId=await findContactByEmail(email);
     if(!contactId)throw new Error("HUBSPOT_CONTACT_NOT_FOUND_FOR_FORM_EMAIL");
-    const match=matchFormContact(lead,submissionContactAddress({initial,supplemental}),await readContactIdentity(contactId));
+    const match=matchFormContact(lead,await readContactIdentity(contactId));
     const prior=await q<any>(`SELECT validation_id FROM hubspot_form_submissions WHERE lower(contact_email)=lower($1) AND form_guid IN ($2,$3) AND validation_id IS NOT NULL AND submitted_at=to_timestamp($4/1000.0) LIMIT 1`,[email,forms.initial,forms.supplemental,latestMs]);
     let result:any;
     if(prior[0]?.validation_id){

@@ -9,20 +9,6 @@ function values(s?:HubSpotSubmission){const m=new Map<string,string>();for(const
 
 export function submissionEmail(s?:HubSpotSubmission){const m=values(s);return firstPresent([m],["email","email_address","contact_email"])?.toLowerCase();}
 
-/**
- * Submitter's mailing address as the form wrote it to the HubSpot contact properties
- * (address/city/state/zip). Undefined when the submission collected none of them.
- */
-export function submissionContactAddress(c:Pick<CombinedSubmission,"initial"|"supplemental">){
-  const maps=[values(c.supplemental),values(c.initial)];
-  const street=firstPresent(maps,["address","street_address"]);
-  const city=firstPresent(maps,["city"]);
-  const state=firstPresent(maps,["state"]);
-  const zip=firstPresent(maps,["zip","zip_code","postal_code"]);
-  if(!street&&!city&&!state&&!zip)return undefined;
-  return{street,city,state,zip};
-}
-
 export function toLead(c:CombinedSubmission):Lead{
   const a=values(c.initial),b=values(c.supplemental),maps=[b,a];
   const email=firstPresent(maps,["email","email_address","contact_email"]);
