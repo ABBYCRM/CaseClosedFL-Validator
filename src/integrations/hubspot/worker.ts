@@ -4,7 +4,7 @@ import { startValidation } from "../../agent/controller.js";
 import { buildOutcome } from "../../validation/outcome.js";
 import { staffContactFromFields } from "../osint/verdict.js";
 import {
-  createContactNoteWithScreenshots, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
+  createContactNoteWithScreenshots, describeHubSpotToken, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
   listForms, readContacts, readNotes, searchNotesSince, type HubSpotCrmContact, type HubSpotCrmNote,
   type HubSpotSubmission
 } from "./client.js";
@@ -263,8 +263,26 @@ export async function syncHubSpotOnce(){
   return{enabled:true,mode,...await syncCrmNotesOnce()};
 }
 
-export function startHubSpotWorker(log:(obj:unknown,msg?:string)=>void){
+export interface HubSpotWorkerOptions { fetch?:typeof fetch; }
+
+export async function logHubSpotTokenScopes(log:(obj:unknown,msg?:string)=>void,opts?:HubSpotWorkerOptions){
+  try{
+    if(!env.HUBSPOT_ACCESS_TOKEN)return;
+    const info=await describeHubSpotToken({fetch:opts?.fetch});
+    if(!info){log({},"HubSpot token scopes unavailable");return;}
+    log({
+      hubspot_app_id:info.appId,
+      hubspot_hub_id:info.hubId,
+      scopes:info.scopes,
+      screenshot_upload_scope_ok:info.scopes.includes("files")
+    },"HubSpot token scopes");
+  }catch{}
+}
+
+export function startHubSpotWorker(log:(obj:unknown,msg?:string)=>void,opts?:HubSpotWorkerOptions){
   if(!env.HUBSPOT_SYNC_ENABLED)return()=>{};
+  const isTest=env.NODE_ENV==="test"||!!process.env.VITEST;
+  if(opts?.fetch||!isTest)void logHubSpotTokenScopes(log,opts);
   let stopped=false,running=false;
   const tick=async()=>{
     if(stopped||running)return;running=true;

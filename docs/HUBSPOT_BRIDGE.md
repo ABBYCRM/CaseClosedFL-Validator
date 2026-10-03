@@ -68,7 +68,11 @@ HUBSPOT_ACCESS_TOKEN=<runtime secret>
 # HUBSPOT_SYNC_MODE=auto   # default; crm_notes when form GUIDs are empty
 ```
 
-The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode. Attaching official-source screenshots also needs HubSpot Files upload. If upload fails (including a missing files scope), the HubSpot-safe HTML NOTE is still written and the upload error is recorded on the sync result.
+The HubSpot private app token needs contacts read, notes read, and notes write. Forms scopes are not required for CRM-note mode. Attaching official-source screenshots also needs the private app scope `files`. If upload fails (including a missing `files` scope), the HubSpot-safe HTML NOTE is still written and the upload error is recorded on the sync result; a missing scope is reported as `HUBSPOT_403_MISSING_SCOPES:<scopes>` (for example `HUBSPOT_403_MISSING_SCOPES:files`). Uploads are still attempted on every note, so screenshots start attaching as soon as the scope is granted.
+
+At startup (sync enabled and token set) the worker logs one `HubSpot token scopes` line with `hubspot_app_id`, `hubspot_hub_id`, `scopes`, and `screenshot_upload_scope_ok` (true when `files` is granted). The lookup is best effort and never logs the token.
+
+TrustedForm retain results read from contacts or notes are shown in the current wording: `TrustedForm cert retained (stored 5 years). Lookup/claim window ends <date>.` Legacy `TrustedForm cert retained, expires <date>.` values are converted on read only; stored HubSpot data is not rewritten. The `trustedform_retain_expires_at` date is the end of the TrustedForm lookup/claim window (72 hours, or 90 days if a form submission was recorded), not the end of the retained copy, which is stored for the account retention period (5 years by default).
 
 Optional forms mode:
 

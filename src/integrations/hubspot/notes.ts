@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Lead } from "../../validation/schema.js";
 import { firstPresent, mapBool, mapCaseType, mapDate, mapFault, mapInjured, mapState, mapTreatment, norm, present, stateFromZip } from "./fields.js";
+import { modernizeTrustedFormRetainSentence } from "./trustedform.js";
 
 export type NoteKind="intake"|"supplemental"|"validation"|"other";
 
@@ -154,7 +155,7 @@ function resolveState(fields:Map<string,string>[],contact:HubSpotContactRecord){
     ?? stateFromZip(contact.zip);
 }
 
-const RETAIN_SENTENCE=/TrustedForm (?:cert retained(?:, expires [^.]+)?|retain failed: [^.]+|retain skipped: [^.]+)\./;
+const RETAIN_SENTENCE=/TrustedForm (?:cert retained \(stored [^)]+\)\.(?: Lookup\/claim window ends [^.]+\.)?|cert retained(?:, expires [^.]+)?\.|retain failed: [^.]+\.|retain skipped: [^.]+\.)/;
 
 export function trustedFormHandoff(input:{
   email?:string;
@@ -172,7 +173,7 @@ export function trustedFormHandoff(input:{
     ping_url:present(input.contact?.trustedFormPingUrl)??firstPresent(input.maps,["trustedform_ping","trustedform_ping_url","xxtrustedformpingurl"])??pingFromNote,
     retain_status:present(input.contact?.trustedFormRetainStatus)??firstPresent(input.maps,["trustedform_retain","trustedform_retain_status"])??"",
     retain_expires_at:present(input.contact?.trustedFormRetainExpiresAt)??"",
-    retain_result:present(input.contact?.trustedFormRetainResult)??sentence,
+    retain_result:modernizeTrustedFormRetainSentence(present(input.contact?.trustedFormRetainResult)??sentence),
     email
   };
 }

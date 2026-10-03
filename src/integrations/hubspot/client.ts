@@ -1,6 +1,7 @@
 import { env } from "../../config/env.js";
 import { listValidationScreenshots, type ValidationScreenshot } from "../../evidence/screenshots.js";
 import { toHubSpotNoteHtml } from "./notes.js";
+import { modernizeTrustedFormRetainSentence } from "./trustedform.js";
 
 export interface HubSpotHttpOptions {
   fetch?:typeof fetch;
@@ -83,6 +84,28 @@ export function privateFileUploadOptions(){
   return {access:"PRIVATE",overwrite:false,duplicateValidationStrategy:"NONE",duplicateValidationScope:"ENTIRE_PORTAL"};
 }
 
+export function missingScopesFromHubSpotError(text:string):string[]|null{
+  let j:any;
+  try{j=JSON.parse(text);}catch{return null;}
+  if(!j||typeof j!=="object")return null;
+  const message=String(j.message??"");
+  if(j.category!=="MISSING_SCOPES"&&!/required scopes|scopes? (?:is|are) required/i.test(message))return null;
+  const scopes:string[]=[];
+  const add=(scope:unknown)=>{
+    const s=String(scope??"").trim().replace(/^["']|["']$/g,"");
+    if(s&&!scopes.includes(s))scopes.push(s);
+  };
+  for(const err of Array.isArray(j.errors)?j.errors:[]){
+    const required=err?.context?.requiredGranularScopes;
+    if(Array.isArray(required))required.forEach(add);
+  }
+  if(!scopes.length){
+    const listed=message.match(/scopes are required:\s*\[([^\]]*)\]/i)?.[1];
+    if(listed)listed.split(",").forEach(add);
+  }
+  return scopes;
+}
+
 export async function uploadPrivateFile(input:{fileName:string;bytes:Buffer;contentType:string},opts?:HubSpotHttpOptions):Promise<string>{
   const form=new FormData();
   form.append("file",new Blob([new Uint8Array(input.bytes)],{type:input.contentType||"application/octet-stream"}),input.fileName);
@@ -100,10 +123,45 @@ export async function uploadPrivateFile(input:{fileName:string;bytes:Buffer;cont
       body:form
     });
     const text=await r.text();
+    if(r.status===403){
+      const scopes=missingScopesFromHubSpotError(text);
+      if(scopes?.length) throw new Error(`HUBSPOT_403_MISSING_SCOPES:${scopes.join(",")}`);
+    }
     if(!r.ok) throw new Error(`HUBSPOT_${r.status}:${text.slice(0,500)}`);
     const j=text?JSON.parse(text):{};
     if(!j.id) throw new Error("HUBSPOT_FILE_ID_MISSING");
     return String(j.id);
+  }finally{clearTimeout(timer);}
+}
+
+export interface HubSpotTokenInfo { appId:number|null; hubId:number|null; userId:number|null; scopes:string[]; }
+
+function optionalId(v:unknown){
+  const n=Number(v);
+  return v!==null&&v!==undefined&&v!==""&&Number.isFinite(n)?n:null;
+}
+
+// Best effort only: returns null on any failure and never exposes the token.
+export async function describeHubSpotToken(opts?:HubSpotHttpOptions):Promise<HubSpotTokenInfo|null>{
+  const token=opts?.accessToken??env.HUBSPOT_ACCESS_TOKEN;
+  if(!token)return null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),opts?.timeoutMs??5000);
+  const fetchImpl=opts?.fetch??fetch;
+  try{
+    const r=await fetchImpl("https://api.hubapi.com/oauth/v2/private-apps/get/access-token-info",{
+      method:"POST",
+      signal:controller.signal,
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tokenKey:token})
+    });
+    if(!r.ok)return null;
+    const j:any=await r.json();
+    if(!j||typeof j!=="object")return null;
+    const scopes=Array.isArray(j.scopes)?j.scopes.map((s:unknown)=>String(s)).filter((s:string)=>s&&s!==token):[];
+    return {appId:optionalId(j.appId),hubId:optionalId(j.hubId),userId:optionalId(j.userId),scopes};
+  }catch{
+    return null;
   }finally{clearTimeout(timer);}
 }
 
@@ -204,7 +262,7 @@ function asContact(row:any):HubSpotCrmContact|undefined{
     trustedFormPingUrl:p.trustedform_ping_url||p.xxtrustedformpingurl||undefined,
     trustedFormRetainStatus:p.trustedform_retain_status||undefined,
     trustedFormRetainExpiresAt:p.trustedform_retain_expires_at||undefined,
-    trustedFormRetainResult:p.trustedform_retain_result||undefined
+    trustedFormRetainResult:p.trustedform_retain_result?modernizeTrustedFormRetainSentence(p.trustedform_retain_result):undefined
   };
 }
 
