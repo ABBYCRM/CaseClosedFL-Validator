@@ -5,14 +5,16 @@ import { buildOutcome } from "../../validation/outcome.js";
 import { staffContactFromFields } from "../osint/verdict.js";
 import {
   createContactNoteWithScreenshots, describeHubSpotToken, findContactByEmail, getContactNoteIds, getFormSubmissions, getNoteContactIds,
-  listForms, readContacts, readNotes, searchNotesSince, type HubSpotCrmContact, type HubSpotCrmNote,
-  type HubSpotSubmission
+  listForms, readContactIdentity, readContacts, readNotes, searchNotesSince, type HubSpotContactIdentity,
+  type HubSpotCrmContact, type HubSpotCrmNote, type HubSpotSubmission
 } from "./client.js";
+import { classifyContactMatch, possibleDuplicateNotePrefix, type ContactMatch } from "./contact-match.js";
 import { submissionEmail, toLead } from "./mapper.js";
 import {
-  classifyNote, findExistingOutcomeNote, newestSupplemental, notesToLead, outcomeNoteBody,
+  classifyNote, findExistingOutcomeNote, newestSupplemental, notesToLead, outcomeNoteBody, toHubSpotNoteHtml,
   type HubSpotContactRecord, type HubSpotNoteRecord
 } from "./notes.js";
+import type { Lead } from "../../validation/schema.js";
 
 type FormRole={initial:string;supplemental:string};
 type NamedForm={id:string;name:string;archived?:boolean};
@@ -71,6 +73,23 @@ async function ingest(formGuid:string){
 
 function asSubmission(row:any):HubSpotSubmission{return row.payload as HubSpotSubmission;}
 
+/**
+ * Email + phone only; name and address are not compared. The contact was found by email, so in
+ * practice FULL = same phone and PARTIAL = different phone.
+ */
+export function matchFormContact(lead:Lead,contact:HubSpotContactIdentity):ContactMatch{
+  return classifyContactMatch(
+    {email:lead.client.email,phone:lead.client.phone},
+    {email:contact.email,phone:contact.phone}
+  );
+}
+
+/** Anything short of a FULL match keeps the outcome note but flags it; contact properties are never written. */
+export function formOutcomeNote(noteBody:string,match:ContactMatch){
+  if(match.kind==="FULL")return{body:noteBody,possibleDuplicate:false};
+  return{body:`${toHubSpotNoteHtml(possibleDuplicateNotePrefix(match.differing))}<p></p>${noteBody}`,possibleDuplicate:true};
+}
+
 async function processEmail(email:string,forms:FormRole){
   const initialRows=await q<any>(`SELECT * FROM hubspot_form_submissions WHERE form_guid=$1 AND lower(contact_email)=lower($2) ORDER BY submitted_at DESC LIMIT 1`,[forms.initial,email]);
   if(!initialRows[0])return{email,status:"WAITING_FOR_INITIAL_FORM"};
@@ -83,6 +102,7 @@ async function processEmail(email:string,forms:FormRole){
     const lead=toLead({initial,supplemental,initialFormGuid:forms.initial,supplementalFormGuid:forms.supplemental});
     const contactId=await findContactByEmail(email);
     if(!contactId)throw new Error("HUBSPOT_CONTACT_NOT_FOUND_FOR_FORM_EMAIL");
+    const match=matchFormContact(lead,await readContactIdentity(contactId));
     const prior=await q<any>(`SELECT validation_id FROM hubspot_form_submissions WHERE lower(contact_email)=lower($1) AND form_guid IN ($2,$3) AND validation_id IS NOT NULL AND submitted_at=to_timestamp($4/1000.0) LIMIT 1`,[email,forms.initial,forms.supplemental,latestMs]);
     let result:any;
     if(prior[0]?.validation_id){
@@ -93,10 +113,11 @@ async function processEmail(email:string,forms:FormRole){
       result=await startValidation(lead);
       await q(`UPDATE hubspot_form_submissions SET validation_id=$2,last_error=NULL WHERE lower(contact_email)=lower($1) AND form_guid IN ($3,$4) AND submitted_at<=to_timestamp($5/1000.0)`,[email,result.validation_id,forms.initial,forms.supplemental,latestMs]);
     }
-    const noteBody=outcomeNoteBody(result.hubspot_note??result.human_note??result.agent_note?.text??result.agent_note?.summary??"",result.validation_id);
-    const written=await createContactNoteWithScreenshots(contactId,noteBody,result.validation_id);
+    const note=formOutcomeNote(outcomeNoteBody(result.hubspot_note??result.human_note??result.agent_note?.text??result.agent_note?.summary??"",result.validation_id),match);
+    const written=await createContactNoteWithScreenshots(contactId,note.body,result.validation_id);
     await q(`UPDATE hubspot_form_submissions SET processed_at=now(),validation_id=$2,note_id=$3,last_error=NULL
       WHERE lower(contact_email)=lower($1) AND form_guid IN ($4,$5) AND submitted_at<=to_timestamp($6/1000.0)`,[email,result.validation_id,written.noteId,forms.initial,forms.supplemental,latestMs]);
+    if(note.possibleDuplicate)return{email,status:"PROCESSED_POSSIBLE_DUPLICATE",contact_id:contactId,possible_duplicate_fields:match.differing,matched_fields:match.matched,validation_id:result.validation_id,note_id:written.noteId,attachment_ids:written.attachmentIds,attachment_errors:written.uploadErrors};
     return{email,status:"PROCESSED",validation_id:result.validation_id,note_id:written.noteId,attachment_ids:written.attachmentIds,attachment_errors:written.uploadErrors};
   }catch(e:any){
     const message=String(e?.message??"HUBSPOT_BRIDGE_PROCESSING_FAILED").slice(0,1000);
