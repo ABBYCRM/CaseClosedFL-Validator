@@ -62,6 +62,20 @@ export async function findContactByEmail(email:string):Promise<string|null>{
   return uniqueHubSpotContactId(j);
 }
 
+export interface HubSpotContactIdentity { id:string; email?:string; firstName?:string; lastName?:string; phone?:string; street?:string; city?:string; state?:string; zip?:string; }
+const IDENTITY_PROPS=["email","firstname","lastname","phone","address","city","state","zip"];
+
+export async function readContactIdentity(contactId:string,opts?:HubSpotHttpOptions):Promise<HubSpotContactIdentity>{
+  const qs=new URLSearchParams({properties:IDENTITY_PROPS.join(",")});
+  const j:any=await hs(`/crm/v3/objects/contacts/${encodeURIComponent(contactId)}?${qs}`,{},opts);
+  const p=j.properties??{};
+  return{
+    id:String(j.id??contactId),
+    email:p.email||undefined,firstName:p.firstname||undefined,lastName:p.lastname||undefined,phone:p.phone||undefined,
+    street:p.address||undefined,city:p.city||undefined,state:p.state||undefined,zip:p.zip||undefined
+  };
+}
+
 async function noteToContactAssociationType(opts?:HubSpotHttpOptions):Promise<number>{
   if(opts?.associationTypeId) return opts.associationTypeId;
   const j:any=await hs(`/crm/v4/associations/notes/contacts/labels`,{},opts);
